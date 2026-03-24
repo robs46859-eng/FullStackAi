@@ -6,22 +6,13 @@ export class WebhookHandlers {
       throw new Error("Payload must be a Buffer — ensure the webhook route is registered before express.json()");
     }
 
-    let getStripeSync: (() => Promise<{ processWebhook: (p: Buffer, sig: string) => Promise<void> }>) | undefined;
-
     try {
-      const mod = await import("./stripeClient");
-      getStripeSync = mod.getStripeSync;
-    } catch {
-      logger.warn("stripeClient not available — webhook ignored");
-      return;
+      const { getStripeSync } = await import("./stripeClient");
+      const sync = await getStripeSync();
+      await sync.processWebhook(payload, signature);
+    } catch (err) {
+      logger.warn({ err }, "Stripe webhook processing failed or Stripe not configured");
+      throw err;
     }
-
-    if (!getStripeSync) {
-      logger.warn("Stripe not configured — webhook ignored");
-      return;
-    }
-
-    const sync = await getStripeSync();
-    await sync.processWebhook(payload, signature);
   }
 }

@@ -15,13 +15,43 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const server = app.listen(port, (err) => {
+async function initStripe() {
+  try {
+    const { runMigrations } = await import("stripe-replit-sync");
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) throw new Error("DATABASE_URL required");
+
+    // 1. Create stripe schema and tables (idempotent)
+    await runMigrations({ databaseUrl });
+
+    // 2. Get StripeSync instance (AFTER migrations)
+    const { getStripeSync } = await import("./lib/stripeClient");
+    const sync = await getStripeSync();
+
+    // 3. Set up managed webhook
+    const host = process.env.REPLIT_DOMAINS
+      ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+      : `http://localhost:${port}`;
+    const webhookUrl = `${host}/api/stripe/webhook`;
+    await sync.findOrCreateManagedWebhook(webhookUrl);
+
+    // 4. Sync all existing Stripe data
+    await sync.syncBackfill();
+
+    logger.info("Stripe sync initialized");
+  } catch (err) {
+    logger.warn({ err }, "Stripe init skipped — integration not configured");
+  }
+}
+
+const server = app.listen(port, async (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
   }
 
   logger.info({ port }, "Server listening");
+  await initStripe();
 });
 
 server.on("error", (err: NodeJS.ErrnoException) => {

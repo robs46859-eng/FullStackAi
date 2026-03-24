@@ -1,17 +1,91 @@
-/**
- * Stripe client placeholder.
- * Replace this file with the code from the Stripe integration once connected.
- * The billing routes will gracefully handle the "Stripe not configured" error.
- */
+// Stripe integration via Replit Connectors (stripe-replit-sync)
+import Stripe from "stripe";
 
-export async function getStripeSync(): Promise<{
-  processWebhook: (payload: Buffer, sig: string) => Promise<void>;
-  findOrCreateManagedWebhook: (url: string) => Promise<{ webhook: { url: string } }>;
-  syncBackfill: () => Promise<void>;
-}> {
-  throw new Error("Stripe integration not configured. Connect Stripe to enable billing.");
+let connectionSettings: unknown;
+
+async function getCredentials() {
+  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+  const xReplitToken = process.env.REPL_IDENTITY
+    ? "repl " + process.env.REPL_IDENTITY
+    : process.env.WEB_REPL_RENEWAL
+      ? "depl " + process.env.WEB_REPL_RENEWAL
+      : null;
+
+  if (!xReplitToken) {
+    throw new Error("X-Replit-Token not found for repl/depl");
+  }
+
+  const connectorName = "stripe";
+  const isProduction = process.env.REPLIT_DEPLOYMENT === "1";
+  const targetEnvironment = isProduction ? "production" : "development";
+
+  const url = new URL(`https://${hostname}/api/v2/connection`);
+  url.searchParams.set("include_secrets", "true");
+  url.searchParams.set("connector_names", connectorName);
+  url.searchParams.set("environment", targetEnvironment);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      Accept: "application/json",
+      "X-Replit-Token": xReplitToken,
+    },
+  });
+
+  const data = (await response.json()) as {
+    items?: Array<{
+      settings: { publishable: string; secret: string };
+    }>;
+  };
+
+  connectionSettings = data.items?.[0];
+  const settings = (connectionSettings as { settings?: { publishable?: string; secret?: string } })?.settings;
+
+  if (!settings?.publishable || !settings?.secret) {
+    throw new Error(`Stripe ${targetEnvironment} connection not found`);
+  }
+
+  return {
+    publishableKey: settings.publishable,
+    secretKey: settings.secret,
+  };
 }
 
-export async function getUncachableStripeClient(): Promise<import("stripe").default> {
-  throw new Error("Stripe integration not configured. Connect Stripe to enable billing.");
+// WARNING: Never cache this client. Always call this function to get a fresh client.
+export async function getUncachableStripeClient(): Promise<Stripe> {
+  const { secretKey } = await getCredentials();
+  return new Stripe(secretKey, {
+    apiVersion: "2025-08-27.basil" as never,
+  });
+}
+
+export async function getStripePublishableKey(): Promise<string> {
+  const { publishableKey } = await getCredentials();
+  return publishableKey;
+}
+
+export async function getStripeSecretKey(): Promise<string> {
+  const { secretKey } = await getCredentials();
+  return secretKey;
+}
+
+// StripeSync singleton for webhook processing and data sync
+let stripeSync: Awaited<ReturnType<typeof buildStripeSync>> | null = null;
+
+async function buildStripeSync() {
+  const { StripeSync } = await import("stripe-replit-sync");
+  const secretKey = await getStripeSecretKey();
+  return new StripeSync({
+    poolConfig: {
+      connectionString: process.env.DATABASE_URL!,
+      max: 2,
+    },
+    stripeSecretKey: secretKey,
+  });
+}
+
+export async function getStripeSync() {
+  if (!stripeSync) {
+    stripeSync = await buildStripeSync();
+  }
+  return stripeSync;
 }
