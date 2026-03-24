@@ -192,7 +192,7 @@ router.get("/admin/cache", async (req, res) => {
       .where(sql`created_at >= now() - interval '7 days'`);
 
     const [avgSimRow] = await db.execute<{ avg_sim: number | null }>(
-      sql`SELECT avg(similarity_tokens)::float AS avg_sim FROM semantic_cache`,
+      sql`SELECT avg(similarity_tokens)::float AS avg_sim FROM semantic_cache WHERE hit_count > 0`,
     );
 
     const largest = await db.execute<{

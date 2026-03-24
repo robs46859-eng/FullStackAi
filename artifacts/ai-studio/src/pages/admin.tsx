@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Shield, Users, Zap, Database, Key, RefreshCw, AlertTriangle } from "lucide-react";
 import { useAuth } from "@workspace/replit-auth-web";
 import { useQuery } from "@tanstack/react-query";
@@ -559,24 +559,18 @@ function ApiKeysTab() {
 }
 
 export default function AdminPage() {
-  const { isAuthenticated, isLoading, user, login } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
-  if (isLoading) {
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      window.location.href = `/api/login?returnTo=/admin`;
+    }
+  }, [isLoading, isAuthenticated]);
+
+  if (isLoading || !isAuthenticated) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <Skeleton className="h-10 w-40" />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4">
-        <Shield className="w-10 h-10 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">You must be logged in to access this page.</p>
-        <Button size="sm" onClick={login}>
-          Log in
-        </Button>
       </div>
     );
   }
