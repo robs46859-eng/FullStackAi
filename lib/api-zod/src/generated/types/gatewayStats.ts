@@ -5,27 +5,6 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-export interface HealthStatus {
-  status: string;
-}
-
-export interface AgentGenerateBody {
-  /** Plain-English description of the API to generate */
-  prompt: string;
-}
-
-export interface GenerationRecord {
-  id: number;
-  prompt: string;
-  filename: string;
-  tokenCountPrompt?: number | null;
-  tokenCountCompletion?: number | null;
-  costUsd?: number | null;
-  ttftMs?: number | null;
-  modelUsed?: string | null;
-  cacheHit?: boolean | null;
-  createdAt: string;
-}
 
 export interface GatewayStats {
   /** Total number of generation requests */
@@ -44,9 +23,4 @@ export interface GatewayStats {
   tpmWindowTotal: number;
   /** Configured tokens-per-minute limit */
   tpmLimit: number;
-}
-
-export interface ErrorResponse {
-  error: string;
-  code?: string;
 }

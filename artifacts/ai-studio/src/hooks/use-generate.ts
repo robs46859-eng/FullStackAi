@@ -1,13 +1,31 @@
 import { useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getAgentHistoryQueryKey } from "@workspace/api-client-react";
+import { getAgentHistoryQueryKey, getGatewayStatsQueryKey } from "@workspace/api-client-react";
+
+interface GenerationMeta {
+  modelUsed: string | null;
+  isCached: boolean;
+  tokenCount: { prompt: number; completion: number } | null;
+  costUsd: number | null;
+  ttftMs: number | null;
+}
 
 interface GenerationState {
   isGenerating: boolean;
   streamedCode: string;
   savedFilename: string | null;
   error: string | null;
+  piiWarning: string | null;
+  meta: GenerationMeta;
 }
+
+const defaultMeta: GenerationMeta = {
+  modelUsed: null,
+  isCached: false,
+  tokenCount: null,
+  costUsd: null,
+  ttftMs: null,
+};
 
 export function useGenerateApi() {
   const queryClient = useQueryClient();
@@ -16,6 +34,8 @@ export function useGenerateApi() {
     streamedCode: "",
     savedFilename: null,
     error: null,
+    piiWarning: null,
+    meta: defaultMeta,
   });
 
   const generate = useCallback(async (prompt: string) => {
@@ -24,6 +44,8 @@ export function useGenerateApi() {
       streamedCode: "",
       savedFilename: null,
       error: null,
+      piiWarning: null,
+      meta: defaultMeta,
     });
 
     try {
@@ -51,8 +73,6 @@ export function useGenerateApi() {
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
-        
-        // Keep the last partial line in the buffer
         buffer = lines.pop() || "";
 
         for (const line of lines) {
@@ -62,26 +82,44 @@ export function useGenerateApi() {
 
             try {
               const parsed = JSON.parse(dataStr);
+
+              if (parsed.piiWarning) {
+                setState((s) => ({ ...s, piiWarning: parsed.piiWarning as string }));
+              }
+
               if (parsed.content) {
-                currentCode += parsed.content;
+                currentCode += parsed.content as string;
                 setState((s) => ({ ...s, streamedCode: currentCode }));
               }
+
               if (parsed.done && parsed.filename) {
-                setState((s) => ({ ...s, savedFilename: parsed.filename }));
-                // Invalidate history query to show the new generation in the sidebar
-                queryClient.invalidateQueries({
-                  queryKey: getAgentHistoryQueryKey(),
-                });
+                setState((s) => ({
+                  ...s,
+                  savedFilename: parsed.filename as string,
+                  meta: {
+                    modelUsed: (parsed.model as string) ?? null,
+                    isCached: (parsed.cached as boolean) ?? false,
+                    tokenCount: parsed.tokenCount
+                      ? {
+                          prompt: (parsed.tokenCount as { prompt: number }).prompt,
+                          completion: (parsed.tokenCount as { completion: number }).completion,
+                        }
+                      : null,
+                    costUsd: (parsed.costUsd as number) ?? null,
+                    ttftMs: (parsed.ttftMs as number) ?? null,
+                  },
+                }));
+                queryClient.invalidateQueries({ queryKey: getAgentHistoryQueryKey() });
+                queryClient.invalidateQueries({ queryKey: getGatewayStatsQueryKey() });
               }
+
               if (parsed.error) {
-                 throw new Error(parsed.error);
+                throw new Error(parsed.error as string);
               }
             } catch (e) {
-              // Only warn on parse errors if it's not our intentional throw above
               if (e instanceof Error && !e.message.includes("Unexpected token")) {
                 throw e;
               }
-              console.warn("Failed to parse SSE chunk", dataStr);
             }
           }
         }

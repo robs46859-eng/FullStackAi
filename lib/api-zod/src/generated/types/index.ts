@@ -8,5 +8,6 @@
 
 export * from "./agentGenerateBody";
 export * from "./errorResponse";
+export * from "./gatewayStats";
 export * from "./generationRecord";
 export * from "./healthStatus";

@@ -19,6 +19,7 @@ import type {
 import type {
   AgentGenerateBody,
   ErrorResponse,
+  GatewayStats,
   GenerationRecord,
   HealthStatus,
 } from "./api.schemas";
@@ -112,7 +113,8 @@ export function useHealthCheck<
  * Accepts a plain-English prompt and streams the AI-generated
 TypeScript async Express route handler as Server-Sent Events.
 On completion, the code is saved as a gzip-compressed file
-in the Agent/ directory.
+in the Agent/ directory. PII is redacted before sending to
+the model. Semantic cache is checked first.
 
  * @summary Generate async API code
  */
@@ -267,6 +269,84 @@ export function useAgentHistory<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getAgentHistoryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns aggregate statistics for the Layer 8 gateway including
+cache hit rate, total token usage, estimated cost, and TTFT.
+
+ * @summary Gateway aggregate statistics
+ */
+export const getGatewayStatsUrl = () => {
+  return `/api/gateway/stats`;
+};
+
+export const gatewayStats = async (
+  options?: RequestInit,
+): Promise<GatewayStats> => {
+  return customFetch<GatewayStats>(getGatewayStatsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGatewayStatsQueryKey = () => {
+  return [`/api/gateway/stats`] as const;
+};
+
+export const getGatewayStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof gatewayStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof gatewayStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGatewayStatsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof gatewayStats>>> = ({
+    signal,
+  }) => gatewayStats({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof gatewayStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GatewayStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof gatewayStats>>
+>;
+export type GatewayStatsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Gateway aggregate statistics
+ */
+
+export function useGatewayStats<
+  TData = Awaited<ReturnType<typeof gatewayStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof gatewayStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGatewayStatsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

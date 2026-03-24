@@ -60,10 +60,19 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 - Entry: `src/index.ts` — reads `PORT`, starts Express
 - App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
 - Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
+- **Layer 8 Gateway middleware** in `src/middlewares/`:
+  - `pii-shield.ts` — redacts PII (email, phone, SSN, CC) and blocks prompt injection patterns; runs first on generate
+  - `semantic-cache.ts` — Jaccard similarity (≥85%) cache lookup against `semantic_cache` DB table; short-circuits LLM call on cache hit
+- **Gateway lib** in `src/lib/`:
+  - `tpm-limiter.ts` — in-memory 60-second sliding window TPM (tokens-per-minute) rate limiter; configurable via `AGENT_TPM_LIMIT` (default 50,000)
+- **New routes**: `src/routes/gateway/stats.ts` — `GET /api/gateway/stats` returns aggregate stats
+- Model fallback: configurable via `AGENT_FALLBACK_MODEL` (default `gpt-4.1`); retried when primary fails
+- Observability: TTFT (ms), token counts, cost estimate per generation; stored in `generations` table
 - Depends on: `@workspace/db`, `@workspace/api-zod`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
+- `pnpm --filter @workspace/api-server run build` — production esbuild bundle
 - Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+- **Cost env vars**: `COST_PER_1K_INPUT` (default 0.003), `COST_PER_1K_OUTPUT` (default 0.015)
 
 ### `lib/db` (`@workspace/db`)
 
@@ -100,8 +109,11 @@ React + Vite frontend for the AI Studio. Served at the root path `/`.
 
 - Prompt textarea + Generate button
 - Real-time SSE streaming code viewer (consumes `/api/agent/generate`)
-- Sidebar listing generation history (uses `/api/agent/history`)
+- Sidebar with **Layer 8 Gateway Status panel** (cache hit rate, total tokens, estimated cost, TTFT, TPM) and generation history
+- History entries show: cost, TTFT, model used, and "Cached" badge for semantic cache hits
+- PII warning banner when prompt contained redacted PII
 - Saved-file confirmation banner with `.ts.gz` filename
+- `hooks/use-generate.ts` — tracks SSE meta: `modelUsed`, `isCached`, `tokenCount`, `costUsd`, `ttftMs`, `piiWarning`
 
 ### `lib/integrations-openai-ai-server` (`@workspace/integrations-openai-ai-server`)
 

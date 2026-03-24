@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: agent
     description: AI code generation operations
+  - name: gateway
+    description: Layer 8 Intelligence Gateway operations
 paths:
   /healthz:
     get:
@@ -36,7 +38,8 @@ paths:
         Accepts a plain-English prompt and streams the AI-generated
         TypeScript async Express route handler as Server-Sent Events.
         On completion, the code is saved as a gzip-compressed file
-        in the Agent/ directory.
+        in the Agent/ directory. PII is redacted before sending to
+        the model. Semantic cache is checked first.
       requestBody:
         required: true
         content:
@@ -51,7 +54,13 @@ paths:
               schema:
                 type: string
         "400":
-          description: Bad request
+          description: Bad request or prompt injection detected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Token-per-minute rate limit exceeded
           content:
             application/json:
               schema:
@@ -72,6 +81,22 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/GenerationRecord"
+
+  /gateway/stats:
+    get:
+      operationId: gatewayStats
+      tags: [gateway]
+      summary: Gateway aggregate statistics
+      description: |
+        Returns aggregate statistics for the Layer 8 gateway including
+        cache hit rate, total token usage, estimated cost, and TTFT.
+      responses:
+        "200":
+          description: Gateway statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayStats"
 
 components:
   schemas:
@@ -101,6 +126,24 @@ components:
           type: string
         filename:
           type: string
+        tokenCountPrompt:
+          type: integer
+          nullable: true
+        tokenCountCompletion:
+          type: integer
+          nullable: true
+        costUsd:
+          type: number
+          nullable: true
+        ttftMs:
+          type: integer
+          nullable: true
+        modelUsed:
+          type: string
+          nullable: true
+        cacheHit:
+          type: boolean
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -110,10 +153,50 @@ components:
         - filename
         - createdAt
 
+    GatewayStats:
+      type: object
+      properties:
+        totalRequests:
+          type: integer
+          description: Total number of generation requests
+        cacheHits:
+          type: integer
+          description: Number of requests served from semantic cache
+        cacheHitRate:
+          type: number
+          description: Cache hit rate as a fraction (0-1)
+        totalTokens:
+          type: integer
+          description: Total tokens consumed (prompt + completion)
+        totalCostUsd:
+          type: number
+          description: Total estimated cost in USD
+        avgTtftMs:
+          type: number
+          nullable: true
+          description: Average time to first token in milliseconds (non-cached only)
+        tpmWindowTotal:
+          type: integer
+          description: Tokens consumed in the current 60-second window
+        tpmLimit:
+          type: integer
+          description: Configured tokens-per-minute limit
+      required:
+        - totalRequests
+        - cacheHits
+        - cacheHitRate
+        - totalTokens
+        - totalCostUsd
+        - avgTtftMs
+        - tpmWindowTotal
+        - tpmLimit
+
     ErrorResponse:
       type: object
       properties:
         error:
+          type: string
+        code:
           type: string
       required:
         - error

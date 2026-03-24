@@ -19,7 +19,8 @@ export const HealthCheckResponse = zod.object({
  * Accepts a plain-English prompt and streams the AI-generated
 TypeScript async Express route handler as Server-Sent Events.
 On completion, the code is saved as a gzip-compressed file
-in the Agent/ directory.
+in the Agent/ directory. PII is redacted before sending to
+the model. Semantic cache is checked first.
 
  * @summary Generate async API code
  */
@@ -37,6 +38,38 @@ export const AgentHistoryResponseItem = zod.object({
   id: zod.number(),
   prompt: zod.string(),
   filename: zod.string(),
+  tokenCountPrompt: zod.number().nullish(),
+  tokenCountCompletion: zod.number().nullish(),
+  costUsd: zod.number().nullish(),
+  ttftMs: zod.number().nullish(),
+  modelUsed: zod.string().nullish(),
+  cacheHit: zod.boolean().nullish(),
   createdAt: zod.date(),
 });
 export const AgentHistoryResponse = zod.array(AgentHistoryResponseItem);
+
+/**
+ * Returns aggregate statistics for the Layer 8 gateway including
+cache hit rate, total token usage, estimated cost, and TTFT.
+
+ * @summary Gateway aggregate statistics
+ */
+export const GatewayStatsResponse = zod.object({
+  totalRequests: zod.number().describe("Total number of generation requests"),
+  cacheHits: zod
+    .number()
+    .describe("Number of requests served from semantic cache"),
+  cacheHitRate: zod.number().describe("Cache hit rate as a fraction (0-1)"),
+  totalTokens: zod
+    .number()
+    .describe("Total tokens consumed (prompt + completion)"),
+  totalCostUsd: zod.number().describe("Total estimated cost in USD"),
+  avgTtftMs: zod
+    .number()
+    .nullable()
+    .describe("Average time to first token in milliseconds (non-cached only)"),
+  tpmWindowTotal: zod
+    .number()
+    .describe("Tokens consumed in the current 60-second window"),
+  tpmLimit: zod.number().describe("Configured tokens-per-minute limit"),
+});

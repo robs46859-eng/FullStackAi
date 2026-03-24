@@ -10,5 +10,11 @@ export interface GenerationRecord {
   id: number;
   prompt: string;
   filename: string;
+  tokenCountPrompt?: number | null;
+  tokenCountCompletion?: number | null;
+  costUsd?: number | null;
+  ttftMs?: number | null;
+  modelUsed?: string | null;
+  cacheHit?: boolean | null;
   createdAt: Date;
 }
