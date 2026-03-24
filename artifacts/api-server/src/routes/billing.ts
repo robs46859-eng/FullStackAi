@@ -156,7 +156,7 @@ router.post("/billing/checkout", async (req, res) => {
     return;
   }
 
-  const { priceId } = req.body as { priceId: string };
+  const { priceId, returnUrl } = req.body as { priceId: string; returnUrl?: string };
   if (!priceId) {
     res.status(400).json({ error: "priceId is required" });
     return;
@@ -179,14 +179,17 @@ router.post("/billing/checkout", async (req, res) => {
     }
 
     const origin = `${req.headers["x-forwarded-proto"] ?? "https"}://${req.headers["x-forwarded-host"] ?? req.headers.host}`;
+    const base = returnUrl ?? origin;
+    const successUrl = `${base}?checkout=success`;
+    const cancelUrl = `${base}?checkout=cancel`;
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
-      success_url: `${origin}/?checkout=success`,
-      cancel_url: `${origin}/?checkout=cancel`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
     });
 
     res.json({ url: session.url });

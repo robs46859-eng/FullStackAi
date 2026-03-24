@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import { Check, CreditCard, Shield, Zap, Sparkles, Building2 } from "lucide-react";
 import { useAuth } from "@workspace/replit-auth-web";
 import { Button } from "@/components/ui/button";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 
 interface BillingPlan {
@@ -45,6 +47,35 @@ const PLAN_COLORS: Record<string, string> = {
 
 export default function BillingPage() {
   const { isAuthenticated, login } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkout = params.get("checkout");
+    if (!checkout) return;
+
+    // Strip the param from the URL without reloading
+    const clean = window.location.pathname;
+    window.history.replaceState({}, "", clean);
+
+    if (checkout === "success") {
+      toast({
+        title: "Subscription activated!",
+        description: "Your plan has been upgraded. It may take a few seconds to reflect.",
+      });
+      // Refetch subscription status after a short delay to pick up webhook sync
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["billing-subscription"] });
+      }, 3000);
+    } else if (checkout === "cancel") {
+      toast({
+        title: "Checkout cancelled",
+        description: "No changes were made to your plan.",
+        variant: "destructive",
+      });
+    }
+  }, [toast, queryClient]);
 
   const { data: plans = [], isLoading: plansLoading } = useQuery<BillingPlan[]>({
     queryKey: ["billing-plans"],
@@ -58,12 +89,14 @@ export default function BillingPage() {
   });
 
   const checkoutMutation = useMutation({
-    mutationFn: (priceId: string) =>
-      fetchJson<{ url: string }>("/api/billing/checkout", {
+    mutationFn: (priceId: string) => {
+      const returnUrl = window.location.origin + window.location.pathname;
+      return fetchJson<{ url: string }>("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ priceId }),
-      }),
+        body: JSON.stringify({ priceId, returnUrl }),
+      });
+    },
     onSuccess: (data) => {
       if (data.url) window.location.href = data.url;
     },
