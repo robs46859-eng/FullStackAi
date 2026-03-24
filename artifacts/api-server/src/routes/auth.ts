@@ -176,6 +176,7 @@ router.get("/callback", async (req: Request, res: Response) => {
       firstName: dbUser.firstName,
       lastName: dbUser.lastName,
       profileImageUrl: dbUser.profileImageUrl,
+      isAdmin: dbUser.isAdmin,
     },
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token,

@@ -7,6 +7,7 @@ import keysRouter from "./keys";
 import billingRouter from "./billing";
 import publicApiRouter from "./public-api";
 import wellKnownRouter from "./well-known";
+import adminRouter from "./admin";
 import { createMcpRouter } from "../lib/mcp-server";
 
 const router: IRouter = Router();
@@ -18,6 +19,7 @@ router.use(gatewayRouter);
 router.use(keysRouter);
 router.use(billingRouter);
 router.use(publicApiRouter);
+router.use(adminRouter);
 router.use(createMcpRouter());
 
 export { wellKnownRouter };

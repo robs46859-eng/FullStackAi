@@ -483,6 +483,9 @@ components:
         profileImageUrl:
           type: string
           nullable: true
+        isAdmin:
+          type: boolean
+          nullable: true
       required:
         - id
 

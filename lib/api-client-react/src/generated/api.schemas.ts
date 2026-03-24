@@ -90,6 +90,7 @@ export interface AuthUser {
   firstName?: string | null;
   lastName?: string | null;
   profileImageUrl?: string | null;
+  isAdmin?: boolean | null;
 }
 
 export interface GetCurrentAuthUserResponse {

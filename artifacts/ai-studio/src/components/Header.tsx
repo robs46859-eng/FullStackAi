@@ -1,4 +1,4 @@
-import { LogIn, LogOut, User, Key, CreditCard, Zap } from "lucide-react";
+import { LogIn, LogOut, Key, CreditCard, Zap, Shield } from "lucide-react";
 import { useAuth } from "@workspace/replit-auth-web";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,14 @@ export function Header() {
                 Billing
               </Button>
             </Link>
+            {user?.isAdmin && (
+              <Link href="/admin">
+                <Button variant="ghost" size="sm" className="text-xs h-7 text-violet-600 hover:text-violet-700">
+                  <Shield className="w-3 h-3 mr-1" />
+                  Admin
+                </Button>
+              </Link>
+            )}
           </>
         )}
       </nav>
