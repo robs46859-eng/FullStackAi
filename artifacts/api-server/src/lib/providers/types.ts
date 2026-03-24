@@ -10,6 +10,7 @@ export type OnReset = (notice: string) => void;
 export interface GatewayProvider {
   readonly name: string;
   readonly model: string;
+  readonly fallbackModel?: string;
   readonly costPerKInputTokens: number;
   readonly costPerKOutputTokens: number;
   streamCompletion(

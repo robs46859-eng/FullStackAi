@@ -6,7 +6,12 @@ import { GeminiProvider } from "./gemini";
 export type RoutingStrategy = "cost" | "latency" | "capability";
 
 const ALL_PROVIDERS: GatewayProvider[] = [
-  new OpenAIProvider(process.env.AGENT_MODEL ?? "gpt-5.2", 0.002, 0.008),
+  new OpenAIProvider(
+    process.env.AGENT_MODEL ?? "gpt-5.2",
+    process.env.AGENT_FALLBACK_MODEL ?? "gpt-4.1",
+    0.002,
+    0.008,
+  ),
   new AnthropicProvider("claude-sonnet-4-5", 0.003, 0.015),
   new GeminiProvider("gemini-2.5-pro", 0.00125, 0.01),
 ];
@@ -90,13 +95,30 @@ export async function streamWithFallback(
   throw new Error("All providers exhausted");
 }
 
-export function getProviderStats(): Record<string, ProviderStats & { model: string; costPerKInput: number; costPerKOutput: number }> {
-  const result: Record<string, ProviderStats & { model: string; costPerKInput: number; costPerKOutput: number }> = {};
+export function getProviderStats(): Record<
+  string,
+  ProviderStats & {
+    model: string;
+    fallbackModel?: string;
+    costPerKInput: number;
+    costPerKOutput: number;
+  }
+> {
+  const result: Record<
+    string,
+    ProviderStats & {
+      model: string;
+      fallbackModel?: string;
+      costPerKInput: number;
+      costPerKOutput: number;
+    }
+  > = {};
   for (const provider of ALL_PROVIDERS) {
     const stats = providerStats.get(provider.name) ?? { requests: 0, errors: 0, totalCostUsd: 0, totalTokens: 0 };
     result[provider.name] = {
       ...stats,
       model: provider.model,
+      ...(provider.fallbackModel ? { fallbackModel: provider.fallbackModel } : {}),
       costPerKInput: provider.costPerKInputTokens,
       costPerKOutput: provider.costPerKOutputTokens,
     };
