@@ -33,28 +33,40 @@ function redisMonthlyKey(keyHash: string): string {
   return `apik:monthly:${keyHash}:${currentMonthYear()}`;
 }
 
-async function getRedisMonthlyCount(keyHash: string): Promise<number | null> {
+const INCR_AND_CHECK_SCRIPT = `
+local key = KEYS[1]
+local limit = tonumber(ARGV[1])
+local expiry = tonumber(ARGV[2])
+
+local count = redis.call('INCR', key)
+if count == 1 then
+  redis.call('EXPIREAT', key, expiry)
+end
+if count > limit then
+  redis.call('DECR', key)
+  return {0, count - 1}
+end
+return {1, count}
+`;
+
+async function redisIncrAndCheck(
+  keyHash: string,
+  monthlyLimit: number,
+): Promise<{ allowed: boolean } | null> {
   const redis = getRedis();
   if (!redis || !isRedisAvailable()) return null;
   try {
-    const val = await redis.get(redisMonthlyKey(keyHash));
-    return val === null ? 0 : parseInt(val, 10);
-  } catch {
-    return null;
-  }
-}
-
-async function incrRedisMonthlyCount(keyHash: string): Promise<void> {
-  const redis = getRedis();
-  if (!redis || !isRedisAvailable()) return;
-  try {
-    const key = redisMonthlyKey(keyHash);
-    const newCount = await redis.incr(key);
-    if (newCount === 1) {
-      await redis.expireat(key, endOfMonthExpiry());
-    }
+    const result = (await redis.eval(
+      INCR_AND_CHECK_SCRIPT,
+      1,
+      redisMonthlyKey(keyHash),
+      String(monthlyLimit),
+      String(endOfMonthExpiry()),
+    )) as [number, number];
+    return { allowed: result[0] === 1 };
   } catch (err) {
-    logger.warn({ err }, "Failed to increment Redis monthly counter");
+    logger.warn({ err }, "Redis monthly incr/check failed — falling back to DB");
+    return null;
   }
 }
 
@@ -87,11 +99,10 @@ export async function apiKeyAuth(
     return;
   }
 
-  const monthYear = currentMonthYear();
+  const redisResult = await redisIncrAndCheck(keyHash, keyRow.monthlyLimit);
 
-  const redisCount = await getRedisMonthlyCount(keyHash);
-  if (redisCount !== null) {
-    if (redisCount >= keyRow.monthlyLimit) {
+  if (redisResult !== null) {
+    if (!redisResult.allowed) {
       res.status(429).json({
         error: `Monthly limit of ${keyRow.monthlyLimit} requests exceeded`,
         code: "MONTHLY_LIMIT_EXCEEDED",
@@ -100,6 +111,7 @@ export async function apiKeyAuth(
       return;
     }
   } else {
+    const monthYear = currentMonthYear();
     const [usage] = await db
       .select()
       .from(keyUsageTable)
@@ -135,10 +147,6 @@ export async function recordKeyUsage(
   costUsd: number,
 ): Promise<void> {
   const monthYear = currentMonthYear();
-
-  incrRedisMonthlyCount(keyHash).catch((err) =>
-    logger.warn({ err }, "Failed to increment Redis monthly key count"),
-  );
 
   try {
     await db.execute(sql`

@@ -160,7 +160,11 @@ export async function recordTokens(
   const total = promptTokens + completionTokens;
   if (total <= 0) return;
 
-  recordTokensInMemory(total);
+  if (!isRedisAvailable()) {
+    recordTokensInMemory(total);
+    return;
+  }
+
   await Promise.all([
     redisRecordTokens("tpm:global", total),
     userId ? redisRecordTokens(`tpm:user:${userId}`, total) : Promise.resolve(),
