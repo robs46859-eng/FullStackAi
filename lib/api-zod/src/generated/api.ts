@@ -14,3 +14,29 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * Accepts a plain-English prompt and streams the AI-generated
+TypeScript async Express route handler as Server-Sent Events.
+On completion, the code is saved as a gzip-compressed file
+in the Agent/ directory.
+
+ * @summary Generate async API code
+ */
+export const AgentGenerateBody = zod.object({
+  prompt: zod
+    .string()
+    .describe("Plain-English description of the API to generate"),
+});
+
+/**
+ * Returns all previously generated files, newest first.
+ * @summary List past generations
+ */
+export const AgentHistoryResponseItem = zod.object({
+  id: zod.number(),
+  prompt: zod.string(),
+  filename: zod.string(),
+  createdAt: zod.date(),
+});
+export const AgentHistoryResponse = zod.array(AgentHistoryResponseItem);

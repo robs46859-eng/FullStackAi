@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "AI Studio"
+version = "1.0.0"
+id = "artifacts/ai-studio"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22936
+
+[services.development]
+run = "pnpm --filter @workspace/ai-studio run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/ai-studio", "run", "build" ]
+publicDir = "artifacts/ai-studio/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22936"
+BASE_PATH = "/"

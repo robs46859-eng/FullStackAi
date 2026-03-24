@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: agent
+    description: AI code generation operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,53 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /agent/generate:
+    post:
+      operationId: agentGenerate
+      tags: [agent]
+      summary: Generate async API code
+      description: |
+        Accepts a plain-English prompt and streams the AI-generated
+        TypeScript async Express route handler as Server-Sent Events.
+        On completion, the code is saved as a gzip-compressed file
+        in the Agent/ directory.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentGenerateBody"
+      responses:
+        "200":
+          description: SSE stream of generated code tokens
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /agent/history:
+    get:
+      operationId: agentHistory
+      tags: [agent]
+      summary: List past generations
+      description: Returns all previously generated files, newest first.
+      responses:
+        "200":
+          description: List of generation records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GenerationRecord"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +83,37 @@ components:
       required:
         - status
 
+    AgentGenerateBody:
+      type: object
+      properties:
+        prompt:
+          type: string
+          description: Plain-English description of the API to generate
+      required:
+        - prompt
+
+    GenerationRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        prompt:
+          type: string
+        filename:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - prompt
+        - filename
+        - createdAt
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error

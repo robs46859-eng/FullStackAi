@@ -1,0 +1,15 @@
+packages:
+  "framer-motion": "For smooth UI transitions and layout animations in the studio interface"
+  "date-fns": "For formatting history timestamps nicely"
+  "lucide-react": "For UI icons"
+  "clsx": "For conditional class name merging"
+  "tailwind-merge": "For merging tailwind classes safely"
+
+images:
+  - path: "artifacts/ai-studio/public/images/empty-state.png"
+    description: "Abstract dark mode geometric illustration resembling a glowing futuristic code editor or API node, deep blacks and vibrant neon indigo accents, minimalistic and professional."
+    aspect_ratio: "16:9"
+
+notes:
+  - Custom SSE parsing is required for /api/agent/generate as standard generated hooks do not support streaming text responses.
+  - Using a forced dark-mode aesthetic suited for developer tools.

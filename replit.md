@@ -21,12 +21,15 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+│   ├── api-server/         # Express API server
+│   └── ai-studio/          # React + Vite AI Studio frontend (served at /)
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
-│   └── db/                 # Drizzle ORM schema + DB connection
+│   ├── db/                 # Drizzle ORM schema + DB connection
+│   └── integrations-openai-ai-server/ # Replit AI Integration (OpenAI SDK wrapper)
+├── Agent/                  # Output directory for gzip-compressed generated API files
 ├── scripts/                # Utility scripts (single workspace package)
 │   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
 ├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
@@ -90,6 +93,25 @@ Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used b
 ### `lib/api-client-react` (`@workspace/api-client-react`)
 
 Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
+
+### `artifacts/ai-studio` (`@workspace/ai-studio`)
+
+React + Vite frontend for the AI Studio. Served at the root path `/`.
+
+- Prompt textarea + Generate button
+- Real-time SSE streaming code viewer (consumes `/api/agent/generate`)
+- Sidebar listing generation history (uses `/api/agent/history`)
+- Saved-file confirmation banner with `.ts.gz` filename
+
+### `lib/integrations-openai-ai-server` (`@workspace/integrations-openai-ai-server`)
+
+Server-side OpenAI SDK wrapper using Replit AI Integrations (no user API key needed).
+Requires env vars: `AI_INTEGRATIONS_OPENAI_BASE_URL`, `AI_INTEGRATIONS_OPENAI_API_KEY`.
+
+### `Agent/` (output directory)
+
+Generated TypeScript route handler files are saved here as gzip-compressed `.ts.gz` files.
+Format: `<prompt-slug>-<timestamp>.ts.gz`. Use `zcat` or `gunzip` to read them.
 
 ### `scripts` (`@workspace/scripts`)
 

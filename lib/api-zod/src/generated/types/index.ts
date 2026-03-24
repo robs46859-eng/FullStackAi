@@ -6,4 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./agentGenerateBody";
+export * from "./errorResponse";
+export * from "./generationRecord";
 export * from "./healthStatus";

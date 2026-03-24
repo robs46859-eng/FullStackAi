@@ -8,3 +8,19 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface AgentGenerateBody {
+  /** Plain-English description of the API to generate */
+  prompt: string;
+}
+
+export interface GenerationRecord {
+  id: number;
+  prompt: string;
+  filename: string;
+  createdAt: string;
+}
+
+export interface ErrorResponse {
+  error: string;
+}
