@@ -64,7 +64,8 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
   - `pii-shield.ts` — redacts PII (email, phone, SSN, CC) and blocks prompt injection patterns; runs first on generate
   - `semantic-cache.ts` — Jaccard similarity (≥85%) cache lookup against `semantic_cache` DB table; short-circuits LLM call on cache hit
 - **Gateway lib** in `src/lib/`:
-  - `tpm-limiter.ts` — in-memory 60-second sliding window TPM rate limiter; `checkTpmLimit()` + `checkTpmLimitForTier(multiplier)` for plan-scaled limits; configurable via `AGENT_TPM_LIMIT` (default 50,000)
+  - `redis.ts` — ioredis singleton; connects to `REDIS_URL` on startup; gracefully degrades to in-memory if unavailable; exports `getRedis()`, `isRedisAvailable()`, `initRedis()`
+  - `tpm-limiter.ts` — async Redis sorted-set sliding-window TPM limiter (ZADD/ZREMRANGEBYSCORE via Lua scripts); falls back to in-memory when Redis unavailable; supports: `checkTpmLimit()` (global), `checkTpmLimitForTier(multiplier)` (global×multiplier), `checkUserTpmLimit(userId, planTier)` (per-user: free=10k, pro=50k, enterprise=200k); `recordTokens(prompt, completion, userId?)` writes to both global+user keys; `getWindowStats(userId?)` returns `{global:{total,limit,source}, user?:{...}}`
   - `gateway-config.ts` — loads `config/gateway.yaml` with deep-merge fallback to defaults; exported `gatewayConfig` singleton
   - `mcp-server.ts` — MCP server via `@modelcontextprotocol/sdk` StreamableHTTP transport; mounted at `POST/GET/DELETE /api/mcp`; exposes `generate`, `gateway-stats`, `list-providers` tools; stateful sessions via `mcp-session-id` header
   - `providers/` — multi-provider AI routing layer:

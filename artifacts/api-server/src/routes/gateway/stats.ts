@@ -5,6 +5,7 @@ import { getWindowStats } from "../../lib/tpm-limiter";
 import { getProviderStats, getRoutingStrategy, getCanaryStats } from "../../lib/providers/registry";
 import { pluginLoader } from "../../plugins";
 import { gatewayConfig } from "../../lib/gateway-config";
+import { isRedisAvailable } from "../../lib/redis";
 
 const router: IRouter = Router();
 
@@ -30,7 +31,8 @@ router.get("/gateway/stats", async (req, res) => {
     const totalCostUsd = Number(row?.totalCostUsd ?? 0);
     const avgTtftMs = row?.avgTtftMs != null ? Number(row.avgTtftMs) : null;
 
-    const { total: tpmWindowTotal, limit: tpmLimit } = getWindowStats();
+    const userId = req.user?.id;
+    const tpmStats = await getWindowStats(userId);
 
     res.json({
       totalRequests,
@@ -39,12 +41,14 @@ router.get("/gateway/stats", async (req, res) => {
       totalTokens,
       totalCostUsd,
       avgTtftMs,
-      tpmWindowTotal,
-      tpmLimit,
+      tpm: tpmStats,
+      tpmWindowTotal: tpmStats.global.total,
+      tpmLimit: tpmStats.global.limit,
       routingStrategy: getRoutingStrategy(),
       providers: getProviderStats(),
       canary: getCanaryStats(),
       plugins: pluginLoader.getStats(),
+      redisAvailable: isRedisAvailable(),
       pipelineConfig: {
         guardrails: gatewayConfig.pipeline.guardrails.enabled,
         rag: gatewayConfig.pipeline.rag.enabled,

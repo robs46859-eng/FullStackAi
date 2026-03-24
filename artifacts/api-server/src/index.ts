@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { initRedis } from "./lib/redis";
 
 const rawPort = process.env["PORT"];
 
@@ -51,6 +52,7 @@ const server = app.listen(port, async (err) => {
   }
 
   logger.info({ port }, "Server listening");
+  await initRedis();
   await initStripe();
 });
 

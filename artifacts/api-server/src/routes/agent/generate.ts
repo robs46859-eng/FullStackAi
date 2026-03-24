@@ -9,7 +9,13 @@ import { sql } from "drizzle-orm";
 import { AgentGenerateBody } from "@workspace/api-zod";
 import { piiShield } from "../../middlewares/pii-shield";
 import { semanticCache, tokenize } from "../../middlewares/semantic-cache";
-import { checkTpmLimit, checkTpmLimitForTier, recordTokens } from "../../lib/tpm-limiter";
+import {
+  checkTpmLimit,
+  checkTpmLimitForTier,
+  checkUserTpmLimit,
+  recordTokens,
+  USER_TPM_LIMITS,
+} from "../../lib/tpm-limiter";
 import { streamWithFallback } from "../../lib/providers/registry";
 import { pluginLoader, ALL_BUILTIN_PLUGINS } from "../../plugins";
 import type { GenerateContext } from "../../plugins/plugin-interface";
@@ -86,17 +92,40 @@ router.post(
     }
 
     const tpmMultiplier = (ctx.metadata.tpmMultiplier as number) ?? 1;
-    const { allowed, retryAfterSec } =
+    const globalTpmCheck =
       tpmMultiplier > 1
-        ? checkTpmLimitForTier(tpmMultiplier)
-        : checkTpmLimit();
+        ? await checkTpmLimitForTier(tpmMultiplier)
+        : await checkTpmLimit();
 
-    if (!allowed) {
+    if (!globalTpmCheck.allowed) {
       res
         .status(429)
-        .set("Retry-After", String(retryAfterSec))
-        .json({ error: "Token rate limit exceeded. Try again shortly.", code: "TPM_LIMIT" });
+        .set("Retry-After", String(globalTpmCheck.retryAfterSec))
+        .json({
+          error: "Global token rate limit exceeded. Try again shortly.",
+          code: "TPM_LIMIT_GLOBAL",
+          retryAfterSec: globalTpmCheck.retryAfterSec,
+        });
       return;
+    }
+
+    if (ctx.userId) {
+      const planTier = ctx.planTier ?? "free";
+      const userTpmCheck = await checkUserTpmLimit(ctx.userId, planTier);
+      if (!userTpmCheck.allowed) {
+        const userLimit = USER_TPM_LIMITS[planTier] ?? USER_TPM_LIMITS.free;
+        res
+          .status(429)
+          .set("Retry-After", String(userTpmCheck.retryAfterSec))
+          .json({
+            error: `Per-user token rate limit exceeded (${userLimit.toLocaleString()} TPM for ${planTier} plan).`,
+            code: "TPM_LIMIT_USER",
+            planTier,
+            userLimit,
+            retryAfterSec: userTpmCheck.retryAfterSec,
+          });
+        return;
+      }
     }
 
     await pluginLoader.run("onCacheMiss", ctx);
@@ -176,7 +205,7 @@ router.post(
     const writeable = createWriteStream(outPath);
     await pipeline(readable, gzip, writeable);
 
-    recordTokens(promptTokens, completionTokens);
+    await recordTokens(promptTokens, completionTokens, ctx.userId);
 
     await db.insert(generationsTable).values({
       prompt: originalPrompt,
