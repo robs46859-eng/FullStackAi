@@ -65,14 +65,19 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
   - `semantic-cache.ts` — Jaccard similarity (≥85%) cache lookup against `semantic_cache` DB table; short-circuits LLM call on cache hit
 - **Gateway lib** in `src/lib/`:
   - `tpm-limiter.ts` — in-memory 60-second sliding window TPM (tokens-per-minute) rate limiter; configurable via `AGENT_TPM_LIMIT` (default 50,000)
-- **New routes**: `src/routes/gateway/stats.ts` — `GET /api/gateway/stats` returns aggregate stats
-- Model fallback: configurable via `AGENT_FALLBACK_MODEL` (default `gpt-4.1`); retried when primary fails
-- Observability: TTFT (ms), token counts, cost estimate per generation; stored in `generations` table
-- Depends on: `@workspace/db`, `@workspace/api-zod`
+  - `providers/` — multi-provider AI routing layer:
+    - `types.ts` — `GatewayProvider` interface, `ProviderStats`, `StreamResult`
+    - `openai.ts` — OpenAI provider (model: `gpt-5.2`, cost: $0.002/$0.008 per 1K tokens)
+    - `anthropic.ts` — Anthropic provider (model: `claude-sonnet-4-5`, cost: $0.003/$0.015 per 1K tokens)
+    - `gemini.ts` — Gemini provider (model: `gemini-2.5-pro`, cost: $0.00125/$0.01 per 1K tokens)
+    - `registry.ts` — `streamWithFallback()` selects provider chain by `ROUTING_STRATEGY` env var (`cost` | `latency` | `capability`; default: `cost`), emits `streamReset` SSE on provider switch, tracks per-provider in-memory stats
+- **Routes**: `src/routes/gateway/stats.ts` — `GET /api/gateway/stats` returns aggregate + per-provider stats + `routingStrategy`
+- Provider fallback: entire provider chain tried in order (cost→Gemini→OpenAI→Anthropic; latency→OpenAI→Gemini→Anthropic; capability→Anthropic→OpenAI→Gemini)
+- Observability: TTFT (ms), token counts, cost estimate per generation; stored in `generations` table; provider name stored in `modelUsed` field
+- Depends on: `@workspace/db`, `@workspace/api-zod`, `@workspace/integrations-openai-ai-server`, `@workspace/integrations-anthropic-ai`, `@workspace/integrations-gemini-ai`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
 - `pnpm --filter @workspace/api-server run build` — production esbuild bundle
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
-- **Cost env vars**: `COST_PER_1K_INPUT` (default 0.003), `COST_PER_1K_OUTPUT` (default 0.015)
+- Build bundles all deps including `@google/genai` and `@anthropic-ai/sdk` (only `@google-cloud/*` is externalized, not `@google/*`)
 
 ### `lib/db` (`@workspace/db`)
 
@@ -119,6 +124,16 @@ React + Vite frontend for the AI Studio. Served at the root path `/`.
 
 Server-side OpenAI SDK wrapper using Replit AI Integrations (no user API key needed).
 Requires env vars: `AI_INTEGRATIONS_OPENAI_BASE_URL`, `AI_INTEGRATIONS_OPENAI_API_KEY`.
+
+### `lib/integrations-anthropic-ai` (`@workspace/integrations-anthropic-ai`)
+
+Server-side Anthropic SDK wrapper using Replit AI Integrations. Exports `anthropic` client.
+Requires env vars: `AI_INTEGRATIONS_ANTHROPIC_BASE_URL`, `AI_INTEGRATIONS_ANTHROPIC_API_KEY`.
+
+### `lib/integrations-gemini-ai` (`@workspace/integrations-gemini-ai`)
+
+Server-side Google GenAI SDK wrapper using Replit AI Integrations. Exports `ai` client.
+Requires env vars: `AI_INTEGRATIONS_GEMINI_BASE_URL`, `AI_INTEGRATIONS_GEMINI_API_KEY`.
 
 ### `Agent/` (output directory)
 

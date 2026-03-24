@@ -4,18 +4,15 @@ import { createWriteStream, mkdirSync } from "fs";
 import { join, resolve } from "path";
 import { pipeline } from "stream/promises";
 import { Readable } from "stream";
-import { openai } from "@workspace/integrations-openai-ai-server";
 import { db, generationsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { AgentGenerateBody } from "@workspace/api-zod";
 import { piiShield } from "../../middlewares/pii-shield";
 import { semanticCache, tokenize } from "../../middlewares/semantic-cache";
 import { checkTpmLimit, recordTokens } from "../../lib/tpm-limiter";
+import { streamWithFallback } from "../../lib/providers/registry";
 
 const router: IRouter = Router();
-
-const COST_PER_1K_INPUT = parseFloat(process.env.COST_PER_1K_INPUT ?? "0.003");
-const COST_PER_1K_OUTPUT = parseFloat(process.env.COST_PER_1K_OUTPUT ?? "0.015");
 
 function slugify(text: string): string {
   return text
@@ -38,22 +35,6 @@ The output should be a single TypeScript file that:
 - Exports the router as the default export
 
 Only output the TypeScript code, no markdown, no explanations.`;
-
-async function callLlm(
-  prompt: string,
-  model: string,
-): Promise<ReturnType<typeof openai.chat.completions.create>> {
-  return openai.chat.completions.create({
-    model,
-    max_completion_tokens: 8192,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: prompt },
-    ],
-    stream: true,
-    stream_options: { include_usage: true },
-  });
-}
 
 router.post(
   "/agent/generate",
@@ -92,63 +73,33 @@ router.post(
       );
     }
 
-    const primaryModel = process.env.AGENT_MODEL ?? "gpt-5.2";
-    const fallbackModel = process.env.AGENT_FALLBACK_MODEL ?? "gpt-4.1";
-
     let fullCode = "";
     let ttftMs: number | null = null;
-    let usagePromptTokens: number | null = null;
-    let usageCompletionTokens: number | null = null;
-    let usedModel = primaryModel;
     const startTs = Date.now();
 
-    const tryGenerate = async (model: string): Promise<boolean> => {
-      try {
-        const stream = await callLlm(prompt, model);
-        usedModel = model;
-
-        for await (const chunk of stream) {
-          if (chunk.usage) {
-            usagePromptTokens = chunk.usage.prompt_tokens ?? null;
-            usageCompletionTokens = chunk.usage.completion_tokens ?? null;
-          }
-
-          const content = chunk.choices[0]?.delta?.content;
-          if (content) {
-            if (ttftMs === null) {
-              ttftMs = Date.now() - startTs;
-            }
-            fullCode += content;
-            res.write(`data: ${JSON.stringify({ content })}\n\n`);
-          }
-        }
-
-        return true;
-      } catch (err) {
-        req.log.warn({ err, model }, "LLM call failed, attempting fallback");
-        return false;
-      }
+    const onToken = (content: string) => {
+      if (ttftMs === null) ttftMs = Date.now() - startTs;
+      fullCode += content;
+      res.write(`data: ${JSON.stringify({ content })}\n\n`);
     };
 
-    let succeeded = await tryGenerate(primaryModel);
-    if (!succeeded && primaryModel !== fallbackModel) {
-      res.write(
-        `data: ${JSON.stringify({
-          streamReset: true,
-          notice: `Primary model failed, retrying with ${fallbackModel}…`,
-        })}\n\n`,
-      );
+    const onReset = (notice: string) => {
       fullCode = "";
       ttftMs = null;
-      succeeded = await tryGenerate(fallbackModel);
-    }
+      res.write(`data: ${JSON.stringify({ streamReset: true, notice })}\n\n`);
+    };
 
-    if (!succeeded) {
-      req.log.error("Both primary and fallback models failed");
-      res.write(`data: ${JSON.stringify({ error: "Generation failed" })}\n\n`);
+    let streamResult;
+    try {
+      streamResult = await streamWithFallback(prompt, systemPrompt, onToken, onReset);
+    } catch (err) {
+      req.log.error({ err }, "All providers exhausted during generation");
+      res.write(`data: ${JSON.stringify({ error: "Generation failed: all providers exhausted" })}\n\n`);
       res.end();
       return;
     }
+
+    const { promptTokens, completionTokens, modelUsed, providerName, costUsd } = streamResult;
 
     const slug = slugify(parsed.data.prompt) || "generated-api";
     const timestamp = Date.now();
@@ -163,12 +114,6 @@ router.post(
     const writeable = createWriteStream(outPath);
     await pipeline(readable, gzip, writeable);
 
-    const promptTokens = usagePromptTokens ?? Math.ceil(prompt.length / 4);
-    const completionTokens = usageCompletionTokens ?? Math.ceil(fullCode.length / 4);
-    const costUsd =
-      (promptTokens / 1000) * COST_PER_1K_INPUT +
-      (completionTokens / 1000) * COST_PER_1K_OUTPUT;
-
     recordTokens(promptTokens, completionTokens);
 
     await db.insert(generationsTable).values({
@@ -178,7 +123,7 @@ router.post(
       tokenCountCompletion: completionTokens,
       costUsd,
       ttftMs: ttftMs ?? undefined,
-      modelUsed: usedModel,
+      modelUsed,
       cacheHit: false,
     });
 
@@ -196,7 +141,8 @@ router.post(
       `data: ${JSON.stringify({
         done: true,
         filename,
-        model: usedModel,
+        model: modelUsed,
+        provider: providerName,
         cached: false,
         tokenCount: { prompt: promptTokens, completion: completionTokens },
         costUsd,

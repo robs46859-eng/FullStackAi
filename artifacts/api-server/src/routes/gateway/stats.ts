@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, generationsTable } from "@workspace/db";
 import { avg, count, sql, sum } from "drizzle-orm";
 import { getWindowStats } from "../../lib/tpm-limiter";
+import { getProviderStats, getRoutingStrategy } from "../../lib/providers/registry";
 
 const router: IRouter = Router();
 
@@ -38,6 +39,8 @@ router.get("/gateway/stats", async (req, res) => {
       avgTtftMs,
       tpmWindowTotal,
       tpmLimit,
+      routingStrategy: getRoutingStrategy(),
+      providers: getProviderStats(),
     });
   } catch (err) {
     req.log.error({ err }, "Gateway stats error");
