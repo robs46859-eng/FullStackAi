@@ -178,7 +178,8 @@ router.post("/v1/generate", apiKeyAuth, piiShield, semanticCache, async (req, re
   `);
 
   if (req.apiKey) {
-    await recordKeyUsage(req.apiKey.keyHash, req.apiKey.id, promptTokens + completionTokens, costUsd);
+    recordKeyUsage(req.apiKey.keyHash, req.apiKey.id, promptTokens + completionTokens, costUsd)
+      .catch((err) => req.log.warn({ err }, "recordKeyUsage failed"));
   }
 
   res.write(`data: ${JSON.stringify({

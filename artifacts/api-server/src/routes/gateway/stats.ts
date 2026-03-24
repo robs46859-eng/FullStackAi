@@ -32,7 +32,18 @@ router.get("/gateway/stats", async (req, res) => {
     const avgTtftMs = row?.avgTtftMs != null ? Number(row.avgTtftMs) : null;
 
     const userId = req.user?.id;
-    const tpmStats = await getWindowStats(userId);
+    let planTier: string | undefined;
+    if (userId) {
+      try {
+        const [userRow] = await db.execute<{ stripe_subscription_id: string | null }>(
+          sql`SELECT stripe_subscription_id FROM users WHERE id = ${userId} LIMIT 1`,
+        );
+        planTier = userRow?.stripe_subscription_id ? "pro" : "free";
+      } catch {
+        planTier = "free";
+      }
+    }
+    const tpmStats = await getWindowStats(userId, planTier);
 
     res.json({
       totalRequests,

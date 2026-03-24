@@ -171,7 +171,10 @@ export async function recordTokens(
   ]);
 }
 
-export async function getWindowStats(userId?: string): Promise<{
+export async function getWindowStats(
+  userId?: string,
+  planTier?: string,
+): Promise<{
   global: { total: number; limit: number; source: "redis" | "memory" };
   user?: { total: number; limit: number; userId: string; planTier: string };
 }> {
@@ -198,12 +201,12 @@ export async function getWindowStats(userId?: string): Promise<{
 
   if (userId && usingRedis) {
     const userTotal = await redisGetTotal(`tpm:user:${userId}`);
-    const planTier = "free";
+    const resolvedTier = planTier ?? "free";
     result.user = {
       total: userTotal,
-      limit: USER_TPM_LIMITS[planTier],
+      limit: USER_TPM_LIMITS[resolvedTier] ?? USER_TPM_LIMITS.free,
       userId,
-      planTier,
+      planTier: resolvedTier,
     };
   }
 
