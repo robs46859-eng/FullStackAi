@@ -6,17 +6,20 @@ export class OpenAIProvider implements GatewayProvider {
   readonly model: string;
   readonly costPerKInputTokens: number;
   readonly costPerKOutputTokens: number;
+  readonly weight: number;
 
   constructor(
     name: string,
     model: string,
     costPerKInput = 0.002,
     costPerKOutput = 0.008,
+    weight = 3,
   ) {
     this.name = name;
     this.model = model;
     this.costPerKInputTokens = costPerKInput;
     this.costPerKOutputTokens = costPerKOutput;
+    this.weight = weight;
   }
 
   async streamCompletion(

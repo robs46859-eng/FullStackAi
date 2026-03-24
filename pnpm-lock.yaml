@@ -368,6 +368,9 @@ importers:
 
   artifacts/api-server:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.78.0
+        version: 0.78.0(zod@4.3.6)
       '@modelcontextprotocol/sdk':
         specifier: ^1.11.0
         version: 1.27.1

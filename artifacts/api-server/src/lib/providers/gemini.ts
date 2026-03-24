@@ -6,15 +6,18 @@ export class GeminiProvider implements GatewayProvider {
   readonly model: string;
   readonly costPerKInputTokens: number;
   readonly costPerKOutputTokens: number;
+  readonly weight: number;
 
   constructor(
     model = "gemini-2.5-pro",
     costPerKInput = 0.00125,
     costPerKOutput = 0.01,
+    weight = 5,
   ) {
     this.model = model;
     this.costPerKInputTokens = costPerKInput;
     this.costPerKOutputTokens = costPerKOutput;
+    this.weight = weight;
   }
 
   async streamCompletion(

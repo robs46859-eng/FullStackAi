@@ -6,15 +6,18 @@ export class AnthropicProvider implements GatewayProvider {
   readonly model: string;
   readonly costPerKInputTokens: number;
   readonly costPerKOutputTokens: number;
+  readonly weight: number;
 
   constructor(
     model = "claude-sonnet-4-5",
     costPerKInput = 0.003,
     costPerKOutput = 0.015,
+    weight = 2,
   ) {
     this.model = model;
     this.costPerKInputTokens = costPerKInput;
     this.costPerKOutputTokens = costPerKOutput;
+    this.weight = weight;
   }
 
   async streamCompletion(
