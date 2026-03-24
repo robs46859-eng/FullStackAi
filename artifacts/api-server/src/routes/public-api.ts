@@ -15,6 +15,7 @@ import { apiKeyAuth, recordKeyUsage } from "../middlewares/apiKeyAuth";
 import { piiShield } from "../middlewares/pii-shield";
 import { semanticCache, tokenize } from "../middlewares/semantic-cache";
 import { checkTpmLimit, recordTokens } from "../lib/tpm-limiter";
+import { embed, vectorToSql } from "../lib/embeddings";
 
 const router: IRouter = Router();
 
@@ -169,13 +170,22 @@ router.post("/v1/generate", apiKeyAuth, piiShield, semanticCache, async (req, re
   });
 
   const tokens = tokenize(resolvedPrompt);
-  await db.execute(sql`
-    INSERT INTO semantic_cache
-      (prompt_normalized, filename, cached_code_gz_path, similarity_tokens, hit_count, prompt_tsv)
-    VALUES
-      (${resolvedPrompt}, ${filename}, ${outPath}, ${JSON.stringify([...tokens])}, 0,
-       to_tsvector('english', ${resolvedPrompt}))
-  `);
+
+  embed(resolvedPrompt).then(async (embedding) => {
+    const embeddingStr = embedding ? vectorToSql(embedding) : null;
+    try {
+      await db.execute(sql`
+        INSERT INTO semantic_cache
+          (prompt_normalized, filename, cached_code_gz_path, similarity_tokens, hit_count, prompt_tsv, embedding)
+        VALUES
+          (${resolvedPrompt}, ${filename}, ${outPath}, ${JSON.stringify([...tokens])}, 0,
+           to_tsvector('english', ${resolvedPrompt}),
+           ${embeddingStr}::vector)
+      `);
+    } catch (err) {
+      req.log.warn({ err }, "Failed to insert semantic cache row (public-api)");
+    }
+  }).catch((err) => req.log.warn({ err }, "Embedding generation failed for cache (public-api)"));
 
   if (req.apiKey) {
     recordKeyUsage(req.apiKey.keyHash, req.apiKey.id, promptTokens + completionTokens, costUsd)

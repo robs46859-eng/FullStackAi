@@ -7,10 +7,11 @@ import { db, semanticCacheTable, generationsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { pluginLoader } from "../plugins";
 import type { GenerateContext } from "../plugins/plugin-interface";
+import { embed, vectorToSql, COSINE_THRESHOLD } from "../lib/embeddings";
 
 const gunzipAsync = promisify(gunzip);
 
-const SIMILARITY_THRESHOLD = 0.85;
+const JACCARD_THRESHOLD = 0.85;
 
 const STOP_WORDS = new Set([
   "a","an","the","in","on","at","to","for","of","with","that","this","is","are",
@@ -48,12 +49,62 @@ interface CacheRow {
   cached_code_gz_path: string;
   similarity_tokens: string;
   hit_count: number;
+  has_embedding: boolean;
+}
+
+interface VectorCacheRow extends CacheRow {
+  distance: number;
+}
+
+async function findByEmbedding(embeddingStr: string, prompt: string): Promise<VectorCacheRow | null> {
+  try {
+    const tsvResult = await db.execute<VectorCacheRow>(sql`
+      SELECT
+        sc.id, sc.prompt_normalized, sc.filename, sc.cached_code_gz_path,
+        sc.similarity_tokens, sc.hit_count, true AS has_embedding,
+        sc.embedding <=> ${embeddingStr}::vector AS distance
+      FROM (
+        SELECT id
+        FROM semantic_cache
+        WHERE embedding IS NOT NULL
+          AND prompt_tsv @@ plainto_tsquery('english', ${prompt})
+        ORDER BY ts_rank(prompt_tsv, plainto_tsquery('english', ${prompt})) DESC
+        LIMIT 200
+      ) candidates
+      JOIN semantic_cache sc ON sc.id = candidates.id
+      ORDER BY sc.embedding <=> ${embeddingStr}::vector
+      LIMIT 1
+    `);
+
+    let row = tsvResult.rows[0];
+
+    if (!row) {
+      const annResult = await db.execute<VectorCacheRow>(sql`
+        SELECT
+          id, prompt_normalized, filename, cached_code_gz_path, similarity_tokens, hit_count,
+          true AS has_embedding,
+          embedding <=> ${embeddingStr}::vector AS distance
+        FROM semantic_cache
+        WHERE embedding IS NOT NULL
+        ORDER BY embedding <=> ${embeddingStr}::vector
+        LIMIT 1
+      `);
+      row = annResult.rows[0];
+    }
+
+    if (!row) return null;
+    const distance = Number(row.distance);
+    return distance <= COSINE_THRESHOLD ? { ...row, distance } : null;
+  } catch {
+    return null;
+  }
 }
 
 async function findCandidates(prompt: string): Promise<CacheRow[]> {
   try {
     const tsvResult = await db.execute<CacheRow>(sql`
-      SELECT id, prompt_normalized, filename, cached_code_gz_path, similarity_tokens, hit_count
+      SELECT id, prompt_normalized, filename, cached_code_gz_path, similarity_tokens, hit_count,
+        (embedding IS NOT NULL) AS has_embedding
       FROM semantic_cache
       WHERE prompt_tsv @@ plainto_tsquery('english', ${prompt})
       ORDER BY ts_rank(prompt_tsv, plainto_tsquery('english', ${prompt})) DESC
@@ -68,7 +119,8 @@ async function findCandidates(prompt: string): Promise<CacheRow[]> {
   }
 
   const fallback = await db.execute<CacheRow>(sql`
-    SELECT id, prompt_normalized, filename, cached_code_gz_path, similarity_tokens, hit_count
+    SELECT id, prompt_normalized, filename, cached_code_gz_path, similarity_tokens, hit_count,
+      (embedding IS NOT NULL) AS has_embedding
     FROM semantic_cache
     ORDER BY hit_count DESC
     LIMIT 100
@@ -77,54 +129,14 @@ async function findCandidates(prompt: string): Promise<CacheRow[]> {
   return fallback.rows;
 }
 
-export async function semanticCache(
+async function serveFromCache(
   req: Request,
   res: Response,
-  next: NextFunction,
-): Promise<void> {
-  const prompt: string = req.sanitizedPrompt ?? req.body?.prompt ?? "";
-
-  if (!prompt) {
-    next();
-    return;
-  }
-
-  const currentTokens = tokenize(prompt);
-
-  let candidates: CacheRow[];
-  try {
-    candidates = await findCandidates(prompt);
-  } catch {
-    next();
-    return;
-  }
-
-  let bestMatch: { row: CacheRow; similarity: number } | null = null;
-
-  for (const row of candidates) {
-    try {
-      const cachedTokens = new Set<string>(JSON.parse(row.similarity_tokens) as string[]);
-      const sim = jaccard(currentTokens, cachedTokens);
-      if (sim >= SIMILARITY_THRESHOLD && (!bestMatch || sim > bestMatch.similarity)) {
-        bestMatch = { row, similarity: sim };
-      }
-    } catch {
-      continue;
-    }
-  }
-
-  if (!bestMatch) {
-    next();
-    return;
-  }
-
-  const { row } = bestMatch;
+  row: CacheRow,
+  prompt: string,
+): Promise<boolean> {
   const filePath = row.cached_code_gz_path;
-
-  if (!existsSync(filePath)) {
-    next();
-    return;
-  }
+  if (!existsSync(filePath)) return false;
 
   let code: string;
   try {
@@ -132,8 +144,7 @@ export async function semanticCache(
     const decompressed = await gunzipAsync(compressed);
     code = decompressed.toString("utf-8");
   } catch {
-    next();
-    return;
+    return false;
   }
 
   try {
@@ -149,7 +160,7 @@ export async function semanticCache(
       modelUsed: "cached",
     });
   } catch {
-    // Non-fatal — still serve the cached response
+    // Non-fatal
   }
 
   const cacheCtx: GenerateContext = {
@@ -186,4 +197,70 @@ export async function semanticCache(
     })}\n\n`,
   );
   res.end();
+  return true;
+}
+
+export async function semanticCache(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  const prompt: string = req.sanitizedPrompt ?? req.body?.prompt ?? "";
+
+  if (!prompt) {
+    next();
+    return;
+  }
+
+  const [embedding] = await Promise.all([embed(prompt)]);
+
+  if (embedding) {
+    const embeddingStr = vectorToSql(embedding);
+    let vectorRow: VectorCacheRow | null = null;
+    try {
+      vectorRow = await findByEmbedding(embeddingStr, prompt);
+    } catch {
+      // Fall through to Jaccard
+    }
+
+    if (vectorRow) {
+      const served = await serveFromCache(req, res, vectorRow, prompt);
+      if (served) return;
+    }
+  }
+
+  const currentTokens = tokenize(prompt);
+
+  let candidates: CacheRow[];
+  try {
+    candidates = await findCandidates(prompt);
+  } catch {
+    next();
+    return;
+  }
+
+  let bestMatch: { row: CacheRow; similarity: number } | null = null;
+
+  for (const row of candidates) {
+    if (row.has_embedding && embedding) continue;
+    try {
+      const cachedTokens = new Set<string>(JSON.parse(row.similarity_tokens) as string[]);
+      const sim = jaccard(currentTokens, cachedTokens);
+      if (sim >= JACCARD_THRESHOLD && (!bestMatch || sim > bestMatch.similarity)) {
+        bestMatch = { row, similarity: sim };
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  if (!bestMatch) {
+    next();
+    return;
+  }
+
+  const served = await serveFromCache(req, res, bestMatch.row, prompt);
+  if (!served) {
+    next();
+  }
 }

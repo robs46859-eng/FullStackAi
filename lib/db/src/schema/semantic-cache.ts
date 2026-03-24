@@ -6,6 +6,18 @@ const tsvector = customType<{ data: string }>({
   },
 });
 
+const vector768 = customType<{ data: number[]; driverData: string }>({
+  dataType() {
+    return "vector(768)";
+  },
+  toDriver(value: number[]): string {
+    return `[${value.join(",")}]`;
+  },
+  fromDriver(value: string): number[] {
+    return JSON.parse(value) as number[];
+  },
+});
+
 export const semanticCacheTable = pgTable(
   "semantic_cache",
   {
@@ -15,6 +27,7 @@ export const semanticCacheTable = pgTable(
     cachedCodeGzPath: text("cached_code_gz_path").notNull(),
     similarityTokens: text("similarity_tokens").notNull(),
     promptTsv: tsvector("prompt_tsv"),
+    embedding: vector768("embedding"),
     hitCount: integer("hit_count").default(0).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },

@@ -9,6 +9,7 @@ import { sql } from "drizzle-orm";
 import { AgentGenerateBody } from "@workspace/api-zod";
 import { piiShield } from "../../middlewares/pii-shield";
 import { semanticCache, tokenize } from "../../middlewares/semantic-cache";
+import { embed, vectorToSql } from "../../lib/embeddings";
 import {
   checkTpmLimit,
   checkTpmLimitForTier,
@@ -220,13 +221,21 @@ router.post(
 
     const tokens = tokenize(originalPrompt);
 
-    await db.execute(sql`
-      INSERT INTO semantic_cache
-        (prompt_normalized, filename, cached_code_gz_path, similarity_tokens, hit_count, prompt_tsv)
-      VALUES
-        (${originalPrompt}, ${filename}, ${outPath}, ${JSON.stringify([...tokens])}, 0,
-         to_tsvector('english', ${originalPrompt}))
-    `);
+    embed(originalPrompt).then(async (embedding) => {
+      const embeddingStr = embedding ? vectorToSql(embedding) : null;
+      try {
+        await db.execute(sql`
+          INSERT INTO semantic_cache
+            (prompt_normalized, filename, cached_code_gz_path, similarity_tokens, hit_count, prompt_tsv, embedding)
+          VALUES
+            (${originalPrompt}, ${filename}, ${outPath}, ${JSON.stringify([...tokens])}, 0,
+             to_tsvector('english', ${originalPrompt}),
+             ${embeddingStr}::vector)
+        `);
+      } catch (err) {
+        req.log.warn({ err }, "Failed to insert semantic cache row");
+      }
+    }).catch((err) => req.log.warn({ err }, "Embedding generation failed for cache"));
 
     await pluginLoader.run("afterGenerate", ctx);
 

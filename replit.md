@@ -62,10 +62,11 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 - Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
 - **Layer 8 Gateway middleware** in `src/middlewares/`:
   - `pii-shield.ts` — redacts PII (email, phone, SSN, CC) and blocks prompt injection patterns; runs first on generate
-  - `semantic-cache.ts` — Jaccard similarity (≥85%) cache lookup against `semantic_cache` DB table; short-circuits LLM call on cache hit
+  - `semantic-cache.ts` — Two-tier cache: (1) vector similarity via Gemini embeddings (cosine distance ≤ 0.15) with tsvector pre-filter → top-200 cosine re-rank; (2) Jaccard fallback (≥85%) for rows without embeddings; short-circuits LLM call on hit
 - **Gateway lib** in `src/lib/`:
   - `redis.ts` — ioredis singleton; connects to `REDIS_URL` on startup; gracefully degrades to in-memory if unavailable; exports `getRedis()`, `isRedisAvailable()`, `initRedis()`
   - `tpm-limiter.ts` — async Redis sorted-set sliding-window TPM limiter (ZADD/ZREMRANGEBYSCORE via Lua scripts); falls back to in-memory when Redis unavailable; supports: `checkTpmLimit()` (global), `checkTpmLimitForTier(multiplier)` (global×multiplier), `checkUserTpmLimit(userId, planTier)` (per-user: free=10k, pro=50k, enterprise=200k); `recordTokens(prompt, completion, userId?)` writes to both global+user keys; `getWindowStats(userId?)` returns `{global:{total,limit,source}, user?:{...}}`
+  - `embeddings.ts` — Gemini `text-embedding-004` embedding client (768 dims) via `@workspace/integrations-gemini-ai`; `embed(text): Promise<number[]|null>` with graceful null fallback; `vectorToSql(embedding)` converts to pgvector string format; `COSINE_THRESHOLD = 0.15` (cosine distance ≤ 0.15 ≈ 85% similarity)
   - `gateway-config.ts` — loads `config/gateway.yaml` with deep-merge fallback to defaults; exported `gatewayConfig` singleton
   - `mcp-server.ts` — MCP server via `@modelcontextprotocol/sdk` StreamableHTTP transport; mounted at `POST/GET/DELETE /api/mcp`; exposes `generate`, `gateway-stats`, `list-providers` tools; stateful sessions via `mcp-session-id` header
   - `providers/` — multi-provider AI routing layer:
