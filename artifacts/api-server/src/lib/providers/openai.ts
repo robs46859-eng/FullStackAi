@@ -2,32 +2,30 @@ import { openai } from "@workspace/integrations-openai-ai-server";
 import type { GatewayProvider, StreamResult, OnToken } from "./types";
 
 export class OpenAIProvider implements GatewayProvider {
-  readonly name = "openai";
+  readonly name: string;
   readonly model: string;
-  readonly fallbackModel: string;
   readonly costPerKInputTokens: number;
   readonly costPerKOutputTokens: number;
 
   constructor(
+    name: string,
     model: string,
-    fallbackModel: string,
     costPerKInput = 0.002,
     costPerKOutput = 0.008,
   ) {
+    this.name = name;
     this.model = model;
-    this.fallbackModel = fallbackModel;
     this.costPerKInputTokens = costPerKInput;
     this.costPerKOutputTokens = costPerKOutput;
   }
 
-  private async streamModel(
-    model: string,
+  async streamCompletion(
     prompt: string,
     systemPrompt: string,
     onToken: OnToken,
   ): Promise<StreamResult> {
     const stream = await openai.chat.completions.create({
-      model,
+      model: this.model,
       max_completion_tokens: 8192,
       messages: [
         { role: "system", content: systemPrompt },
@@ -53,24 +51,6 @@ export class OpenAIProvider implements GatewayProvider {
       promptTokens = Math.ceil(prompt.length / 4);
     }
 
-    return { promptTokens, completionTokens, modelUsed: model };
-  }
-
-  async streamCompletion(
-    prompt: string,
-    systemPrompt: string,
-    onToken: OnToken,
-  ): Promise<StreamResult> {
-    try {
-      return await this.streamModel(this.model, prompt, systemPrompt, onToken);
-    } catch (_primaryErr) {
-      if (this.fallbackModel === this.model) throw _primaryErr;
-      return await this.streamModel(
-        this.fallbackModel,
-        prompt,
-        systemPrompt,
-        onToken,
-      );
-    }
+    return { promptTokens, completionTokens, modelUsed: this.model };
   }
 }
