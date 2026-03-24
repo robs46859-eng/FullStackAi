@@ -28,8 +28,11 @@ export function checkTpmLimit(): { allowed: boolean; retryAfterSec: number } {
   return { allowed: true, retryAfterSec: 0 };
 }
 
-export function recordTokens(tokens: number): void {
-  tpmWindow.push({ tokens, ts: Date.now() });
+export function recordTokens(promptTokens: number, completionTokens: number): void {
+  const total = promptTokens + completionTokens;
+  if (total > 0) {
+    tpmWindow.push({ tokens: total, ts: Date.now() });
+  }
 }
 
 export function getWindowStats(): { total: number; limit: number } {

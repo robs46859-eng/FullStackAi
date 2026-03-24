@@ -15,11 +15,31 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, (err) => {
+const server = app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
   }
 
   logger.info({ port }, "Server listening");
+});
+
+server.on("error", (err: NodeJS.ErrnoException) => {
+  if (err.code === "EADDRINUSE") {
+    logger.error(
+      { port, err },
+      "Port already in use — kill the stale process with: fuser -k <port>/tcp",
+    );
+  } else {
+    logger.error({ err }, "Server error");
+  }
+  process.exit(1);
+});
+
+process.on("SIGTERM", () => {
+  logger.info("SIGTERM received — shutting down gracefully");
+  server.close(() => {
+    logger.info("HTTP server closed");
+    process.exit(0);
+  });
 });

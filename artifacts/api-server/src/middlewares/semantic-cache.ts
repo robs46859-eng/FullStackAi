@@ -70,7 +70,7 @@ export async function semanticCache(
 
   for (const entry of entries) {
     try {
-      const cachedTokens = new Set<string>(JSON.parse(entry.tokenJson) as string[]);
+      const cachedTokens = new Set<string>(JSON.parse(entry.similarityTokens) as string[]);
       const sim = jaccard(currentTokens, cachedTokens);
       if (sim >= SIMILARITY_THRESHOLD && (!bestMatch || sim > bestMatch.similarity)) {
         bestMatch = { entry, similarity: sim };
@@ -86,8 +86,7 @@ export async function semanticCache(
   }
 
   const { entry } = bestMatch;
-  const agentDir = resolve(process.cwd(), "Agent");
-  const filePath = join(agentDir, entry.filename);
+  const filePath = entry.cachedCodeGzPath;
 
   if (!existsSync(filePath)) {
     next();

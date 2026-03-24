@@ -165,9 +165,7 @@ router.post(
       (promptTokens / 1000) * COST_PER_1K_INPUT +
       (completionTokens / 1000) * COST_PER_1K_OUTPUT;
 
-    if (usageCompletionTokens !== null) {
-      recordTokens(usageCompletionTokens);
-    }
+    recordTokens(promptTokens, completionTokens);
 
     await db.insert(generationsTable).values({
       prompt: parsed.data.prompt,
@@ -184,7 +182,8 @@ router.post(
     await db.insert(semanticCacheTable).values({
       promptNormalized: prompt,
       filename,
-      tokenJson: JSON.stringify([...tokens]),
+      cachedCodeGzPath: outPath,
+      similarityTokens: JSON.stringify([...tokens]),
       hitCount: 0,
     });
 
