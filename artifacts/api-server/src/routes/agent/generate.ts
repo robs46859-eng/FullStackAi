@@ -50,8 +50,9 @@ The output should be a single TypeScript file that:
 Only output the TypeScript code, no markdown, no explanations.`;
 
   try {
+    const model = process.env.AGENT_MODEL ?? "gpt-5.2";
     const stream = await openai.chat.completions.create({
-      model: "gpt-5.2",
+      model,
       max_completion_tokens: 8192,
       messages: [
         { role: "system", content: systemPrompt },
