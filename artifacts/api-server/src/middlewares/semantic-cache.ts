@@ -76,22 +76,7 @@ async function findByEmbedding(embeddingStr: string, prompt: string): Promise<Ve
       LIMIT 1
     `);
 
-    let row = tsvResult.rows[0];
-
-    if (!row) {
-      const annResult = await db.execute<VectorCacheRow>(sql`
-        SELECT
-          id, prompt_normalized, filename, cached_code_gz_path, similarity_tokens, hit_count,
-          true AS has_embedding,
-          embedding <=> ${embeddingStr}::vector AS distance
-        FROM semantic_cache
-        WHERE embedding IS NOT NULL
-        ORDER BY embedding <=> ${embeddingStr}::vector
-        LIMIT 1
-      `);
-      row = annResult.rows[0];
-    }
-
+    const row = tsvResult.rows[0];
     if (!row) return null;
     const distance = Number(row.distance);
     return distance <= COSINE_THRESHOLD ? { ...row, distance } : null;
