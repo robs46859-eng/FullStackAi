@@ -157,6 +157,8 @@ export async function semanticCache(
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
 
+  res.write(`data: ${JSON.stringify({ cacheHit: true })}\n\n`);
+
   const chunkSize = 120;
   for (let i = 0; i < code.length; i += chunkSize) {
     res.write(`data: ${JSON.stringify({ content: code.slice(i, i + chunkSize) })}\n\n`);

@@ -133,7 +133,10 @@ router.post(
     let succeeded = await tryGenerate(primaryModel);
     if (!succeeded && primaryModel !== fallbackModel) {
       res.write(
-        `data: ${JSON.stringify({ notice: `Primary model failed, retrying with ${fallbackModel}...` })}\n\n`,
+        `data: ${JSON.stringify({
+          streamReset: true,
+          notice: `Primary model failed, retrying with ${fallbackModel}…`,
+        })}\n\n`,
       );
       fullCode = "";
       ttftMs = null;

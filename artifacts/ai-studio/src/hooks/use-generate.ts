@@ -87,6 +87,15 @@ export function useGenerateApi() {
                 setState((s) => ({ ...s, piiWarning: parsed.piiWarning as string }));
               }
 
+              if (parsed.cacheHit) {
+                setState((s) => ({ ...s, meta: { ...s.meta, isCached: true } }));
+              }
+
+              if (parsed.streamReset) {
+                currentCode = "";
+                setState((s) => ({ ...s, streamedCode: "" }));
+              }
+
               if (parsed.content) {
                 currentCode += parsed.content as string;
                 setState((s) => ({ ...s, streamedCode: currentCode }));
