@@ -1,7 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { existsSync } from "fs";
 import { readFile } from "fs/promises";
-import { join, resolve } from "path";
 import { promisify } from "util";
 import { gunzip } from "zlib";
 import { db, semanticCacheTable, generationsTable } from "@workspace/db";
