@@ -24,6 +24,7 @@ export class AnthropicProvider implements GatewayProvider {
   ): Promise<StreamResult> {
     let promptTokens = 0;
     let completionTokens = 0;
+    let charsEmitted = 0;
 
     const stream = anthropic.messages.stream({
       model: this.model,
@@ -46,11 +47,13 @@ export class AnthropicProvider implements GatewayProvider {
         event.type === "content_block_delta" &&
         event.delta.type === "text_delta"
       ) {
+        charsEmitted += event.delta.text.length;
         onToken(event.delta.text);
       }
     }
 
     if (promptTokens === 0) promptTokens = Math.ceil(prompt.length / 4);
+    if (completionTokens === 0) completionTokens = Math.ceil(charsEmitted / 4);
 
     return { promptTokens, completionTokens, modelUsed: this.model };
   }

@@ -24,6 +24,7 @@ export class GeminiProvider implements GatewayProvider {
   ): Promise<StreamResult> {
     let promptTokens = 0;
     let completionTokens = 0;
+    let charsEmitted = 0;
 
     const stream = await ai.models.generateContentStream({
       model: this.model,
@@ -41,10 +42,14 @@ export class GeminiProvider implements GatewayProvider {
           chunk.usageMetadata.candidatesTokenCount ?? completionTokens;
       }
       const text = chunk.text;
-      if (text) onToken(text);
+      if (text) {
+        charsEmitted += text.length;
+        onToken(text);
+      }
     }
 
     if (promptTokens === 0) promptTokens = Math.ceil(prompt.length / 4);
+    if (completionTokens === 0) completionTokens = Math.ceil(charsEmitted / 4);
 
     return { promptTokens, completionTokens, modelUsed: this.model };
   }

@@ -37,6 +37,7 @@ export class OpenAIProvider implements GatewayProvider {
 
     let promptTokens = 0;
     let completionTokens = 0;
+    let charsEmitted = 0;
 
     for await (const chunk of stream) {
       if (chunk.usage) {
@@ -44,12 +45,14 @@ export class OpenAIProvider implements GatewayProvider {
         completionTokens = chunk.usage.completion_tokens ?? 0;
       }
       const content = chunk.choices[0]?.delta?.content;
-      if (content) onToken(content);
+      if (content) {
+        charsEmitted += content.length;
+        onToken(content);
+      }
     }
 
-    if (promptTokens === 0 && completionTokens === 0) {
-      promptTokens = Math.ceil(prompt.length / 4);
-    }
+    if (promptTokens === 0) promptTokens = Math.ceil(prompt.length / 4);
+    if (completionTokens === 0) completionTokens = Math.ceil(charsEmitted / 4);
 
     return { promptTokens, completionTokens, modelUsed: this.model };
   }
