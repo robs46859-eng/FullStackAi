@@ -5,7 +5,8 @@ import { join, resolve } from "path";
 import { pipeline } from "stream/promises";
 import { Readable } from "stream";
 import { openai } from "@workspace/integrations-openai-ai-server";
-import { db, generationsTable, semanticCacheTable } from "@workspace/db";
+import { db, generationsTable } from "@workspace/db";
+import { sql } from "drizzle-orm";
 import { AgentGenerateBody } from "@workspace/api-zod";
 import { piiShield } from "../../middlewares/pii-shield";
 import { semanticCache, tokenize } from "../../middlewares/semantic-cache";
@@ -179,13 +180,14 @@ router.post(
     });
 
     const tokens = tokenize(prompt);
-    await db.insert(semanticCacheTable).values({
-      promptNormalized: prompt,
-      filename,
-      cachedCodeGzPath: outPath,
-      similarityTokens: JSON.stringify([...tokens]),
-      hitCount: 0,
-    });
+
+    await db.execute(sql`
+      INSERT INTO semantic_cache
+        (prompt_normalized, filename, cached_code_gz_path, similarity_tokens, hit_count, prompt_tsv)
+      VALUES
+        (${prompt}, ${filename}, ${outPath}, ${JSON.stringify([...tokens])}, 0,
+         to_tsvector('english', ${prompt}))
+    `);
 
     res.write(
       `data: ${JSON.stringify({

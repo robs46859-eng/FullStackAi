@@ -5,7 +5,7 @@ import { join, resolve } from "path";
 import { promisify } from "util";
 import { gunzip } from "zlib";
 import { db, semanticCacheTable, generationsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 const gunzipAsync = promisify(gunzip);
 
@@ -40,6 +40,42 @@ function jaccard(a: Set<string>, b: Set<string>): number {
   return union === 0 ? 1 : intersection / union;
 }
 
+interface CacheRow {
+  id: number;
+  prompt_normalized: string;
+  filename: string;
+  cached_code_gz_path: string;
+  similarity_tokens: string;
+  hit_count: number;
+}
+
+async function findCandidates(prompt: string): Promise<CacheRow[]> {
+  try {
+    const tsvResult = await db.execute<CacheRow>(sql`
+      SELECT id, prompt_normalized, filename, cached_code_gz_path, similarity_tokens, hit_count
+      FROM semantic_cache
+      WHERE prompt_tsv @@ plainto_tsquery('english', ${prompt})
+      ORDER BY ts_rank(prompt_tsv, plainto_tsquery('english', ${prompt})) DESC
+      LIMIT 200
+    `);
+
+    if (tsvResult.rows.length > 0) {
+      return tsvResult.rows;
+    }
+  } catch {
+    // tsvector search failed (e.g., empty query term) — fall through to full scan
+  }
+
+  const fallback = await db.execute<CacheRow>(sql`
+    SELECT id, prompt_normalized, filename, cached_code_gz_path, similarity_tokens, hit_count
+    FROM semantic_cache
+    ORDER BY hit_count DESC
+    LIMIT 100
+  `);
+
+  return fallback.rows;
+}
+
 export async function semanticCache(
   req: Request,
   res: Response,
@@ -54,26 +90,22 @@ export async function semanticCache(
 
   const currentTokens = tokenize(prompt);
 
-  let entries: Array<typeof semanticCacheTable.$inferSelect>;
+  let candidates: CacheRow[];
   try {
-    entries = await db
-      .select()
-      .from(semanticCacheTable)
-      .orderBy(semanticCacheTable.hitCount)
-      .limit(2000);
+    candidates = await findCandidates(prompt);
   } catch {
     next();
     return;
   }
 
-  let bestMatch: { entry: typeof semanticCacheTable.$inferSelect; similarity: number } | null = null;
+  let bestMatch: { row: CacheRow; similarity: number } | null = null;
 
-  for (const entry of entries) {
+  for (const row of candidates) {
     try {
-      const cachedTokens = new Set<string>(JSON.parse(entry.similarityTokens) as string[]);
+      const cachedTokens = new Set<string>(JSON.parse(row.similarity_tokens) as string[]);
       const sim = jaccard(currentTokens, cachedTokens);
       if (sim >= SIMILARITY_THRESHOLD && (!bestMatch || sim > bestMatch.similarity)) {
-        bestMatch = { entry, similarity: sim };
+        bestMatch = { row, similarity: sim };
       }
     } catch {
       continue;
@@ -85,8 +117,8 @@ export async function semanticCache(
     return;
   }
 
-  const { entry } = bestMatch;
-  const filePath = entry.cachedCodeGzPath;
+  const { row } = bestMatch;
+  const filePath = row.cached_code_gz_path;
 
   if (!existsSync(filePath)) {
     next();
@@ -106,12 +138,12 @@ export async function semanticCache(
   try {
     await db
       .update(semanticCacheTable)
-      .set({ hitCount: entry.hitCount + 1 })
-      .where(eq(semanticCacheTable.id, entry.id));
+      .set({ hitCount: row.hit_count + 1 })
+      .where(eq(semanticCacheTable.id, row.id));
 
     await db.insert(generationsTable).values({
       prompt,
-      filename: entry.filename,
+      filename: row.filename,
       cacheHit: true,
       modelUsed: "cached",
     });
@@ -133,7 +165,7 @@ export async function semanticCache(
   res.write(
     `data: ${JSON.stringify({
       done: true,
-      filename: entry.filename,
+      filename: row.filename,
       cached: true,
       model: "cached",
     })}\n\n`,
