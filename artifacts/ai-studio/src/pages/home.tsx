@@ -19,7 +19,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-background overflow-hidden text-foreground">
+    <div className="flex flex-1 w-full bg-background overflow-hidden text-foreground min-h-0">
       <Sidebar onSelectPrompt={handleSelectHistoryPrompt} />
       
       <main className="flex-1 flex flex-col min-w-0 relative">

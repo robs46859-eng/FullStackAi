@@ -46,6 +46,99 @@ export interface GatewayStats {
   tpmLimit: number;
 }
 
+export interface AuthUser {
+  id: string;
+  email?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  profileImageUrl?: string | null;
+}
+
+export interface GetCurrentAuthUserResponse {
+  user: AuthUser | null;
+}
+
+export interface ExchangeMobileAuthorizationCodeBody {
+  code: string;
+  code_verifier: string;
+  redirect_uri: string;
+  state: string;
+  nonce?: string | null;
+}
+
+export interface ExchangeMobileAuthorizationCodeResponse {
+  token: string;
+}
+
+export interface LogoutMobileSessionResponse {
+  success: boolean;
+}
+
+export interface ApiKeyRecord {
+  id: number;
+  name: string;
+  keyPrefix: string;
+  monthlyLimit: number;
+  revokedAt?: string | null;
+  lastUsedAt?: string | null;
+  createdAt: string;
+}
+
+export interface CreateApiKeyBody {
+  /** Human-readable name for the key */
+  name: string;
+  /** Max requests per month (default 100) */
+  monthlyLimit?: number;
+}
+
+export interface CreateApiKeyResponse {
+  id: number;
+  name: string;
+  keyPrefix: string;
+  /** Full API key — shown only once, store it now */
+  key: string;
+  monthlyLimit: number;
+  createdAt: string;
+}
+
+export interface KeyUsageStats {
+  monthYear: string;
+  tokenCount: number;
+  costUsd: number;
+  requestCount: number;
+  monthlyLimit: number;
+}
+
+export interface BillingPlan {
+  id: string;
+  name: string;
+  description: string;
+  priceId?: string | null;
+  unitAmount?: number | null;
+  currency: string;
+  interval?: string | null;
+  generationsPerMonth?: number | null;
+}
+
+export interface SubscriptionStatus {
+  status: string | null;
+  planName?: string | null;
+  currentPeriodEnd?: string | null;
+  cancelAtPeriodEnd?: boolean | null;
+}
+
+export interface CreateCheckoutBody {
+  priceId: string;
+}
+
+export interface CheckoutResponse {
+  url: string;
+}
+
+export interface SuccessResponse {
+  success: boolean;
+}
+
 export interface ErrorResponse {
   error: string;
   code?: string;

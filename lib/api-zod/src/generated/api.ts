@@ -73,3 +73,137 @@ export const GatewayStatsResponse = zod.object({
     .describe("Tokens consumed in the current 60-second window"),
   tpmLimit: zod.number().describe("Configured tokens-per-minute limit"),
 });
+
+/**
+ * @summary Get current authenticated user
+ */
+export const GetCurrentAuthUserResponse = zod.object({
+  user: zod
+    .union([
+      zod.object({
+        id: zod.string(),
+        email: zod.string().nullish(),
+        firstName: zod.string().nullish(),
+        lastName: zod.string().nullish(),
+        profileImageUrl: zod.string().nullish(),
+      }),
+      zod.null(),
+    ])
+    .nullable(),
+});
+
+/**
+ * @summary Exchange mobile authorization code for session token
+ */
+export const ExchangeMobileAuthorizationCodeBody = zod.object({
+  code: zod.string(),
+  code_verifier: zod.string(),
+  redirect_uri: zod.string(),
+  state: zod.string(),
+  nonce: zod.string().nullish(),
+});
+
+export const ExchangeMobileAuthorizationCodeResponse = zod.object({
+  token: zod.string(),
+});
+
+/**
+ * @summary Logout mobile session
+ */
+export const LogoutMobileSessionResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary List user's API keys
+ */
+export const ListApiKeysResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  keyPrefix: zod.string(),
+  monthlyLimit: zod.number(),
+  revokedAt: zod.date().nullish(),
+  lastUsedAt: zod.date().nullish(),
+  createdAt: zod.date(),
+});
+export const ListApiKeysResponse = zod.array(ListApiKeysResponseItem);
+
+/**
+ * @summary Create a new API key
+ */
+export const CreateApiKeyBody = zod.object({
+  name: zod.string().describe("Human-readable name for the key"),
+  monthlyLimit: zod
+    .number()
+    .optional()
+    .describe("Max requests per month (default 100)"),
+});
+
+/**
+ * @summary Revoke an API key
+ */
+export const RevokeApiKeyParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RevokeApiKeyResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Get monthly usage for an API key
+ */
+export const GetApiKeyUsageParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetApiKeyUsageResponse = zod.object({
+  monthYear: zod.string(),
+  tokenCount: zod.number(),
+  costUsd: zod.number(),
+  requestCount: zod.number(),
+  monthlyLimit: zod.number(),
+});
+
+/**
+ * @summary List available subscription plans
+ */
+export const GetBillingPlansResponseItem = zod.object({
+  id: zod.string(),
+  name: zod.string(),
+  description: zod.string(),
+  priceId: zod.string().nullish(),
+  unitAmount: zod.number().nullish(),
+  currency: zod.string(),
+  interval: zod.string().nullish(),
+  generationsPerMonth: zod.number().nullish(),
+});
+export const GetBillingPlansResponse = zod.array(GetBillingPlansResponseItem);
+
+/**
+ * @summary Get current user's subscription status
+ */
+export const GetBillingSubscriptionResponse = zod.object({
+  status: zod.string().nullable(),
+  planName: zod.string().nullish(),
+  currentPeriodEnd: zod.date().nullish(),
+  cancelAtPeriodEnd: zod.boolean().nullish(),
+});
+
+/**
+ * @summary Create a Stripe checkout session
+ */
+export const CreateCheckoutSessionBody = zod.object({
+  priceId: zod.string(),
+});
+
+export const CreateCheckoutSessionResponse = zod.object({
+  url: zod.string(),
+});
+
+/**
+ * @summary Create a Stripe billing portal session
+ */
+export const CreateBillingPortalSessionResponse = zod.object({
+  url: zod.string(),
+});
