@@ -5,6 +5,8 @@ import { promisify } from "util";
 import { gunzip } from "zlib";
 import { db, semanticCacheTable, generationsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
+import { pluginLoader } from "../plugins";
+import type { GenerateContext } from "../plugins/plugin-interface";
 
 const gunzipAsync = promisify(gunzip);
 
@@ -62,7 +64,7 @@ async function findCandidates(prompt: string): Promise<CacheRow[]> {
       return tsvResult.rows;
     }
   } catch {
-    // tsvector search failed (e.g., empty query term) — fall through to full scan
+    // tsvector search failed — fall through to full scan
   }
 
   const fallback = await db.execute<CacheRow>(sql`
@@ -149,6 +151,18 @@ export async function semanticCache(
   } catch {
     // Non-fatal — still serve the cached response
   }
+
+  const cacheCtx: GenerateContext = {
+    requestId: String(req.id ?? Math.random()),
+    prompt,
+    originalPrompt: prompt,
+    systemPrompt: "",
+    cached: true,
+    userId: req.user?.id,
+    metadata: { cacheFilename: row.filename },
+  };
+
+  await pluginLoader.run("onCacheHit", cacheCtx);
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");

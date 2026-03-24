@@ -1,0 +1,42 @@
+pipeline:
+  guardrails:
+    enabled: true
+    preCheck: true
+    postCheck: false
+    provider: openai-moderation
+
+  rag:
+    enabled: true
+    maxResults: 3
+    minSimilarityScore: 0.5
+
+  templates:
+    enabled: true
+    compressThresholdTokens: 2048
+
+  otel:
+    enabled: true
+    exporterEndpoint: ""
+
+  canary:
+    enabled: false
+    provider: "openai-gpt41"
+    trafficPercent: 10
+
+  semanticRouting:
+    enabled: true
+
+  transforms:
+    request: []
+    response: []
+
+plugins:
+  enabled:
+    - request-logger
+    - plan-tier-limiter
+    - prompt-enhancer
+    - otel-tracer
+    - rag-injector
+    - prompt-template
+    - content-guard
+    - transform

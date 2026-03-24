@@ -2,7 +2,9 @@ import { Router, type IRouter } from "express";
 import { db, generationsTable } from "@workspace/db";
 import { avg, count, sql, sum } from "drizzle-orm";
 import { getWindowStats } from "../../lib/tpm-limiter";
-import { getProviderStats, getRoutingStrategy } from "../../lib/providers/registry";
+import { getProviderStats, getRoutingStrategy, getCanaryStats } from "../../lib/providers/registry";
+import { pluginLoader } from "../../plugins";
+import { gatewayConfig } from "../../lib/gateway-config";
 
 const router: IRouter = Router();
 
@@ -41,6 +43,16 @@ router.get("/gateway/stats", async (req, res) => {
       tpmLimit,
       routingStrategy: getRoutingStrategy(),
       providers: getProviderStats(),
+      canary: getCanaryStats(),
+      plugins: pluginLoader.getStats(),
+      pipelineConfig: {
+        guardrails: gatewayConfig.pipeline.guardrails.enabled,
+        rag: gatewayConfig.pipeline.rag.enabled,
+        templates: gatewayConfig.pipeline.templates.enabled,
+        otel: gatewayConfig.pipeline.otel.enabled,
+        canary: gatewayConfig.pipeline.canary.enabled,
+        semanticRouting: gatewayConfig.pipeline.semanticRouting.enabled,
+      },
     });
   } catch (err) {
     req.log.error({ err }, "Gateway stats error");

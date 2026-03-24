@@ -40,3 +40,15 @@ export function getWindowStats(): { total: number; limit: number } {
   const total = tpmWindow.reduce((sum, e) => sum + e.tokens, 0);
   return { total, limit: TPM_LIMIT };
 }
+
+export function checkTpmLimitForTier(multiplier: number): { allowed: boolean; retryAfterSec: number } {
+  evictExpired();
+  const effectiveLimit = TPM_LIMIT * multiplier;
+  const currentTotal = tpmWindow.reduce((sum, e) => sum + e.tokens, 0);
+  if (currentTotal >= effectiveLimit) {
+    const oldestTs = tpmWindow[0]?.ts ?? Date.now();
+    const retryAfterMs = WINDOW_MS - (Date.now() - oldestTs);
+    return { allowed: false, retryAfterSec: Math.ceil(retryAfterMs / 1000) };
+  }
+  return { allowed: true, retryAfterSec: 0 };
+}

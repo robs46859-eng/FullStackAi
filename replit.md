@@ -64,17 +64,33 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
   - `pii-shield.ts` — redacts PII (email, phone, SSN, CC) and blocks prompt injection patterns; runs first on generate
   - `semantic-cache.ts` — Jaccard similarity (≥85%) cache lookup against `semantic_cache` DB table; short-circuits LLM call on cache hit
 - **Gateway lib** in `src/lib/`:
-  - `tpm-limiter.ts` — in-memory 60-second sliding window TPM (tokens-per-minute) rate limiter; configurable via `AGENT_TPM_LIMIT` (default 50,000)
+  - `tpm-limiter.ts` — in-memory 60-second sliding window TPM rate limiter; `checkTpmLimit()` + `checkTpmLimitForTier(multiplier)` for plan-scaled limits; configurable via `AGENT_TPM_LIMIT` (default 50,000)
+  - `gateway-config.ts` — loads `config/gateway.yaml` with deep-merge fallback to defaults; exported `gatewayConfig` singleton
+  - `mcp-server.ts` — MCP server via `@modelcontextprotocol/sdk` StreamableHTTP transport; mounted at `POST/GET/DELETE /api/mcp`; exposes `generate`, `gateway-stats`, `list-providers` tools; stateful sessions via `mcp-session-id` header
   - `providers/` — multi-provider AI routing layer:
     - `types.ts` — `GatewayProvider` interface, `ProviderStats`, `StreamResult`
     - `openai.ts` — OpenAI provider (model: `gpt-5.2`, cost: $0.002/$0.008 per 1K tokens)
     - `anthropic.ts` — Anthropic provider (model: `claude-sonnet-4-5`, cost: $0.003/$0.015 per 1K tokens)
     - `gemini.ts` — Gemini provider (model: `gemini-2.5-pro`, cost: $0.00125/$0.01 per 1K tokens)
-    - `registry.ts` — `streamWithFallback()` selects provider chain by `ROUTING_STRATEGY` env var (`cost` | `latency` | `capability`; default: `cost`), emits `streamReset` SSE on provider switch, tracks per-provider in-memory stats
-- **Routes**: `src/routes/gateway/stats.ts` — `GET /api/gateway/stats` returns aggregate + per-provider stats + `routingStrategy`
-- Provider fallback: entire provider chain tried in order (cost→Gemini→OpenAI→Anthropic; latency→OpenAI→Gemini→Anthropic; capability→Anthropic→OpenAI→Gemini)
-- Observability: TTFT (ms), token counts, cost estimate per generation; stored in `generations` table; provider name stored in `modelUsed` field
+    - `registry.ts` — `streamWithFallback()` builds provider chain using: (1) `ROUTING_STRATEGY` base order, (2) semantic keyword routing (analytical→openai, creative→anthropic, multimodal→gemini), (3) canary traffic split (`CANARY_PROVIDER` + `CANARY_TRAFFIC_PERCENT`); exposes `getCanaryStats()`
+- **Plugin system** in `src/plugins/`:
+  - `plugin-interface.ts` — `GatewayPlugin` interface (hooks: `init`, `beforeGenerate`, `afterGenerate`, `onCacheHit`, `onCacheMiss`, `onError`) + `GenerateContext` type
+  - `plugin-loader.ts` — `PluginLoader` singleton; respects `GATEWAY_PLUGINS` env var or `config/gateway.yaml` enabled list; runs hooks in registration order; tracks per-plugin call counts
+  - `index.ts` — exports `pluginLoader` + `ALL_BUILTIN_PLUGINS` array
+  - `builtin/request-logger.ts` — logs generation completion with all metrics
+  - `builtin/plan-tier-limiter.ts` — resolves user Stripe tier → sets `ctx.planTier` and `ctx.metadata.tpmMultiplier`
+  - `builtin/prompt-enhancer.ts` — appends Express 5 / pino / Zod coding style guide to prompt
+  - `builtin/otel-tracer.ts` — OpenTelemetry tracing with OTLP HTTP exporter; span attributes cover provider, model, tokens, cost, TTFT
+  - `builtin/rag-injector.ts` — TSVector full-text search over `semantic_cache`; injects up to N gzip-decompressed code examples into prompt
+  - `builtin/prompt-template.ts` — `{{variable}}` interpolation + sentence-level compression to configurable token limit
+  - `builtin/content-guard.ts` — OpenAI Moderation API pre/post check; `beforeGenerate` returns `false` to block flagged prompts
+  - `builtin/transform.ts` — extensible request/response transform registry (`registerRequestTransform`, `registerResponseTransform`)
+- **Declarative config**: `config/gateway.yaml` — feature flags for all pipeline stages (guardrails, rag, templates, otel, canary, semanticRouting, transforms); `plugins.enabled` list
+- **Routes**: `src/routes/gateway/stats.ts` — `GET /api/gateway/stats` returns aggregate + per-provider stats + `routingStrategy` + `canary` + `plugins` call counts + `pipelineConfig` feature flags
+- Provider fallback: provider chain: strategy base order → semantic keyword override → canary coin-flip
+- Observability: TTFT (ms), token counts, cost estimate per generation; stored in `generations` table; `semanticRouted` + `canaryHit` flags on SSE done event
 - Depends on: `@workspace/db`, `@workspace/api-zod`, `@workspace/integrations-openai-ai-server`, `@workspace/integrations-anthropic-ai`, `@workspace/integrations-gemini-ai`
+- Extra deps: `@opentelemetry/api`, `@opentelemetry/sdk-trace-node`, `@opentelemetry/exporter-trace-otlp-http`, `@opentelemetry/resources`, `@opentelemetry/semantic-conventions`, `@modelcontextprotocol/sdk`, `js-yaml`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
 - `pnpm --filter @workspace/api-server run build` — production esbuild bundle
 - Build bundles all deps including `@google/genai` and `@anthropic-ai/sdk` (only `@google-cloud/*` is externalized, not `@google/*`)
