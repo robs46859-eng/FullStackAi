@@ -384,6 +384,39 @@ components:
         - filename
         - createdAt
 
+    ProviderStats:
+      type: object
+      properties:
+        requests:
+          type: integer
+          description: Total requests routed to this provider in this process lifetime
+        errors:
+          type: integer
+          description: Number of failed requests for this provider
+        totalCostUsd:
+          type: number
+          description: Total estimated cost in USD for this provider
+        totalTokens:
+          type: integer
+          description: Total tokens consumed by this provider
+        model:
+          type: string
+          description: Model name used by this provider
+        costPerKInput:
+          type: number
+          description: Cost per 1K input tokens in USD
+        costPerKOutput:
+          type: number
+          description: Cost per 1K output tokens in USD
+      required:
+        - requests
+        - errors
+        - totalCostUsd
+        - totalTokens
+        - model
+        - costPerKInput
+        - costPerKOutput
+
     GatewayStats:
       type: object
       properties:
@@ -412,6 +445,15 @@ components:
         tpmLimit:
           type: integer
           description: Configured tokens-per-minute limit
+        routingStrategy:
+          type: string
+          enum: [cost, latency, capability]
+          description: Active provider routing strategy
+        providers:
+          type: object
+          description: Per-provider stats keyed by provider name (openai, openai-gpt41, anthropic, gemini)
+          additionalProperties:
+            $ref: "#/components/schemas/ProviderStats"
       required:
         - totalRequests
         - cacheHits
@@ -421,6 +463,8 @@ components:
         - avgTtftMs
         - tpmWindowTotal
         - tpmLimit
+        - routingStrategy
+        - providers
 
     AuthUser:
       type: object

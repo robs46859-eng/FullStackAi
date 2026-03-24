@@ -72,6 +72,37 @@ export const GatewayStatsResponse = zod.object({
     .number()
     .describe("Tokens consumed in the current 60-second window"),
   tpmLimit: zod.number().describe("Configured tokens-per-minute limit"),
+  routingStrategy: zod
+    .enum(["cost", "latency", "capability"])
+    .describe("Active provider routing strategy"),
+  providers: zod
+    .record(
+      zod.string(),
+      zod.object({
+        requests: zod
+          .number()
+          .describe(
+            "Total requests routed to this provider in this process lifetime",
+          ),
+        errors: zod
+          .number()
+          .describe("Number of failed requests for this provider"),
+        totalCostUsd: zod
+          .number()
+          .describe("Total estimated cost in USD for this provider"),
+        totalTokens: zod
+          .number()
+          .describe("Total tokens consumed by this provider"),
+        model: zod.string().describe("Model name used by this provider"),
+        costPerKInput: zod.number().describe("Cost per 1K input tokens in USD"),
+        costPerKOutput: zod
+          .number()
+          .describe("Cost per 1K output tokens in USD"),
+      }),
+    )
+    .describe(
+      "Per-provider stats keyed by provider name (openai, openai-gpt41, anthropic, gemini)",
+    ),
 });
 
 /**

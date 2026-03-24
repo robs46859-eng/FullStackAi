@@ -27,6 +27,40 @@ export interface GenerationRecord {
   createdAt: string;
 }
 
+export interface ProviderStats {
+  /** Total requests routed to this provider in this process lifetime */
+  requests: number;
+  /** Number of failed requests for this provider */
+  errors: number;
+  /** Total estimated cost in USD for this provider */
+  totalCostUsd: number;
+  /** Total tokens consumed by this provider */
+  totalTokens: number;
+  /** Model name used by this provider */
+  model: string;
+  /** Cost per 1K input tokens in USD */
+  costPerKInput: number;
+  /** Cost per 1K output tokens in USD */
+  costPerKOutput: number;
+}
+
+/**
+ * Active provider routing strategy
+ */
+export type GatewayStatsRoutingStrategy =
+  (typeof GatewayStatsRoutingStrategy)[keyof typeof GatewayStatsRoutingStrategy];
+
+export const GatewayStatsRoutingStrategy = {
+  cost: "cost",
+  latency: "latency",
+  capability: "capability",
+} as const;
+
+/**
+ * Per-provider stats keyed by provider name (openai, openai-gpt41, anthropic, gemini)
+ */
+export type GatewayStatsProviders = { [key: string]: ProviderStats };
+
 export interface GatewayStats {
   /** Total number of generation requests */
   totalRequests: number;
@@ -44,6 +78,10 @@ export interface GatewayStats {
   tpmWindowTotal: number;
   /** Configured tokens-per-minute limit */
   tpmLimit: number;
+  /** Active provider routing strategy */
+  routingStrategy: GatewayStatsRoutingStrategy;
+  /** Per-provider stats keyed by provider name (openai, openai-gpt41, anthropic, gemini) */
+  providers: GatewayStatsProviders;
 }
 
 export interface AuthUser {

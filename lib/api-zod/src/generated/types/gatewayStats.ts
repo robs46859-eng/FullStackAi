@@ -5,6 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { GatewayStatsProviders } from "./gatewayStatsProviders";
+import type { GatewayStatsRoutingStrategy } from "./gatewayStatsRoutingStrategy";
 
 export interface GatewayStats {
   /** Total number of generation requests */
@@ -23,4 +25,8 @@ export interface GatewayStats {
   tpmWindowTotal: number;
   /** Configured tokens-per-minute limit */
   tpmLimit: number;
+  /** Active provider routing strategy */
+  routingStrategy: GatewayStatsRoutingStrategy;
+  /** Per-provider stats keyed by provider name (openai, openai-gpt41, anthropic, gemini) */
+  providers: GatewayStatsProviders;
 }
