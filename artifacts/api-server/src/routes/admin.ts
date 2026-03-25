@@ -105,7 +105,7 @@ router.get("/admin/users", async (req, res) => {
       LIMIT ${limit} OFFSET ${offset}
     `);
 
-    const [countRow] = await db.execute<{ total: number }>(sql`
+    const countResult = await db.execute<{ total: number }>(sql`
       SELECT count(*)::int AS total FROM users u
       ${search ? sql`WHERE u.email ILIKE ${"%" + search + "%"} OR u.first_name ILIKE ${"%" + search + "%"} OR u.last_name ILIKE ${"%" + search + "%"}` : sql``}
     `);
@@ -124,7 +124,7 @@ router.get("/admin/users", async (req, res) => {
         lastActive: u.updated_at,
         createdAt: u.created_at,
       })),
-      total: countRow.rows[0]?.total ?? 0,
+      total: countResult.rows[0]?.total ?? 0,
       page,
       limit,
     });
@@ -179,7 +179,7 @@ router.get("/admin/generations", async (req, res) => {
 
 router.get("/admin/cache", async (req, res) => {
   try {
-    const [sizeRow] = await db.execute<{ row_count: number }>(
+    const sizeResult = await db.execute<{ row_count: number }>(
       sql`SELECT count(*)::int AS row_count FROM semantic_cache`,
     );
 
@@ -191,7 +191,7 @@ router.get("/admin/cache", async (req, res) => {
       .from(generationsTable)
       .where(sql`created_at >= now() - interval '7 days'`);
 
-    const [avgSimRow] = await db.execute<{ avg_sim: number | null }>(
+    const avgSimResult = await db.execute<{ avg_sim: number | null }>(
       sql`SELECT avg(similarity_tokens)::float AS avg_sim FROM semantic_cache WHERE hit_count > 0`,
     );
 
@@ -209,10 +209,10 @@ router.get("/admin/cache", async (req, res) => {
         : 0;
 
     res.json({
-      rowCount: sizeRow.rows[0]?.row_count ?? 0,
+      rowCount: sizeResult.rows[0]?.row_count ?? 0,
       hitRate7d: hitRate,
-      avgSimilarityOnHits: avgSimRow.rows[0]?.avg_sim
-        ? Number(Number(avgSimRow.rows[0].avg_sim).toFixed(4))
+      avgSimilarityOnHits: avgSimResult.rows[0]?.avg_sim
+        ? Number(Number(avgSimResult.rows[0].avg_sim).toFixed(4))
         : null,
       largestPrompts: largest.rows.map((r) => ({
         prompt: r.prompt_normalized.length > 200 ? r.prompt_normalized.slice(0, 200) + "…" : r.prompt_normalized,

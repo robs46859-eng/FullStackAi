@@ -50,6 +50,7 @@ interface CacheRow {
   similarity_tokens: string;
   hit_count: number;
   has_embedding: boolean;
+  [key: string]: unknown;
 }
 
 interface VectorCacheRow extends CacheRow {

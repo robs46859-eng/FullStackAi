@@ -66,7 +66,7 @@ router.post("/v1/generate", apiKeyAuth, piiShield, semanticCache, async (req, re
     return;
   }
 
-  const { allowed, retryAfterSec } = checkTpmLimit();
+  const { allowed, retryAfterSec } = await checkTpmLimit();
   if (!allowed) {
     res.status(429).set("Retry-After", String(retryAfterSec)).json({
       error: "Token rate limit exceeded",

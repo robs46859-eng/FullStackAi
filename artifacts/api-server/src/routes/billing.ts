@@ -84,7 +84,17 @@ router.get("/billing/plans", async (_req, res) => {
     return;
   }
 
-  const productsMap = new Map<string, typeof STATIC_PLANS[0]>();
+  interface PlanEntry {
+    id: string;
+    name: string;
+    description: string;
+    priceId: string | null;
+    unitAmount: number;
+    currency: string;
+    interval: string | null;
+    generationsPerMonth: number | null;
+  }
+  const productsMap = new Map<string, PlanEntry>();
   for (const row of stripeRows) {
     if (!productsMap.has(row.product_id)) {
       const meta = row.metadata ?? {};

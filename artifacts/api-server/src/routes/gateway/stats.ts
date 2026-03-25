@@ -35,10 +35,10 @@ router.get("/gateway/stats", async (req, res) => {
     let planTier: string | undefined;
     if (userId) {
       try {
-        const [userRow] = await db.execute<{ stripe_subscription_id: string | null }>(
+        const userResult = await db.execute<{ stripe_subscription_id: string | null }>(
           sql`SELECT stripe_subscription_id FROM users WHERE id = ${userId} LIMIT 1`,
         );
-        planTier = userRow?.stripe_subscription_id ? "pro" : "free";
+        planTier = userResult.rows[0]?.stripe_subscription_id ? "pro" : "free";
       } catch {
         planTier = "free";
       }
