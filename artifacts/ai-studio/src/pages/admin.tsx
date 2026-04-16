@@ -3,7 +3,6 @@ import { Shield, Users, Zap, Database, Key, RefreshCw, AlertTriangle } from "luc
 import { useAuth } from "@workspace/replit-auth-web";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,26 +22,26 @@ async function fetchAdmin<T>(path: string): Promise<T> {
 
 function StatCard({ title, value, sub }: { title: string; value: string | number; sub?: string }) {
   return (
-    <Card>
-      <CardHeader className="pb-1 pt-4 px-4">
-        <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+    <div className="ds-panel p-4 rounded-xl">
+      <div className="pb-1">
+        <p className="text-[10px] font-mono font-bold text-on-surface-variant/40 uppercase tracking-widest">
           {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="px-4 pb-4">
-        <p className="text-2xl font-bold">{value}</p>
-        {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
-      </CardContent>
-    </Card>
+        </p>
+      </div>
+      <div className="pt-1">
+        <p className="text-2xl font-display font-bold text-on-surface">{value}</p>
+        {sub && <p className="text-[10px] font-mono text-on-surface-variant/60 uppercase mt-0.5">{sub}</p>}
+      </div>
+    </div>
   );
 }
 
 function RowSkeleton({ cols = 5 }: { cols?: number }) {
   return (
-    <tr className="border-b">
+    <tr className="border-b border-outline-variant">
       {Array.from({ length: cols }).map((_, i) => (
         <td key={i} className="px-3 py-2">
-          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-full bg-surface-container-highest" />
         </td>
       ))}
     </tr>
@@ -68,7 +67,7 @@ function OverviewTab() {
 
   if (error) {
     return (
-      <div className="flex items-center gap-2 text-destructive text-sm p-4">
+      <div className="flex items-center gap-2 text-error text-sm p-4 font-mono uppercase">
         <AlertTriangle className="w-4 h-4" />
         Failed to load overview
       </div>
@@ -78,8 +77,8 @@ function OverviewTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">System Overview</h2>
-        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => refetch()}>
+        <h2 className="text-sm font-display font-bold tracking-widest uppercase text-on-surface">System Overview</h2>
+        <Button variant="ghost" size="sm" className="h-7 text-[10px] font-mono uppercase tracking-widest gap-1 text-on-surface-variant hover:text-on-surface" onClick={() => refetch()}>
           <RefreshCw className="w-3 h-3" />
           Refresh
         </Button>
@@ -87,14 +86,10 @@ function OverviewTab() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {isLoading ? (
           Array.from({ length: 7 }).map((_, i) => (
-            <Card key={i}>
-              <CardHeader className="pb-1 pt-4 px-4">
-                <Skeleton className="h-3 w-24" />
-              </CardHeader>
-              <CardContent className="px-4 pb-4">
-                <Skeleton className="h-7 w-16 mt-1" />
-              </CardContent>
-            </Card>
+            <div key={i} className="ds-panel p-4 rounded-xl">
+              <Skeleton className="h-3 w-24 bg-surface-container-highest" />
+              <Skeleton className="h-7 w-16 mt-2 bg-surface-container-highest" />
+            </div>
           ))
         ) : (
           <>
@@ -117,19 +112,19 @@ function OverviewTab() {
         )}
       </div>
 
-      <Card className="mt-2">
-        <CardHeader className="px-4 pt-4 pb-2">
-          <CardTitle className="text-xs font-medium text-muted-foreground">Promote a user to admin</CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          <p className="text-xs text-muted-foreground mb-2">
+      <div className="ds-panel mt-2 p-4 rounded-xl">
+        <div className="pb-2">
+          <p className="text-[10px] font-mono font-bold text-on-surface-variant/40 uppercase tracking-widest">Promote a user to admin</p>
+        </div>
+        <div>
+          <p className="text-xs text-on-surface-variant/60 mb-3 font-medium">
             Run this SQL command against the database to promote a user:
           </p>
-          <pre className="bg-muted rounded text-xs p-3 font-mono select-all overflow-x-auto">
+          <pre className="bg-surface-container-low rounded text-[11px] p-3 font-mono text-primary-accent border border-outline-variant select-all overflow-x-auto">
             {"UPDATE users SET is_admin = true WHERE email = 'you@example.com';"}
           </pre>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
@@ -175,70 +170,73 @@ function UsersTab() {
           placeholder="Search by email or name…"
           value={search}
           onChange={(e) => handleSearch(e.target.value)}
-          className="h-8 text-xs max-w-xs"
+          className="h-8 text-xs max-w-xs bg-surface-container-low border-outline-variant focus:border-primary-accent"
         />
         {data && (
-          <span className="text-xs text-muted-foreground">{data.total} users</span>
+          <span className="text-[10px] font-mono text-on-surface-variant uppercase tracking-widest">{data.total} users</span>
         )}
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 text-destructive text-sm">
+        <div className="flex items-center gap-2 text-error text-sm font-mono uppercase">
           <AlertTriangle className="w-4 h-4" />
           Failed to load users
         </div>
       )}
 
-      <div className="border rounded-md overflow-x-auto">
+      <div className="ds-panel border border-outline-variant rounded-xl overflow-x-auto">
         <table className="w-full text-xs">
-          <thead className="bg-muted/50 border-b">
+          <thead className="bg-surface-container-high border-b border-outline-variant">
             <tr>
               {["Email / Name", "Plan", "API Keys", "Requests (mo)", "Cost (mo)", "Last Active"].map(
                 (h) => (
-                  <th key={h} className="text-left px-3 py-2 font-medium text-muted-foreground">
+                  <th key={h} className="text-left px-3 py-2 font-mono font-bold text-on-surface-variant/40 uppercase tracking-widest">
                     {h}
                   </th>
                 ),
               )}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-outline-variant">
             {isLoading
               ? Array.from({ length: 8 }).map((_, i) => <RowSkeleton key={i} cols={6} />)
               : data?.users.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-3 py-6 text-center text-on-surface-variant/40 font-mono uppercase">
                     No users found
                   </td>
                 </tr>
               ) : (
                 data?.users.map((u) => (
-                  <tr key={u.id} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="px-3 py-2">
-                      <div className="font-medium">{u.email ?? "—"}</div>
-                      <div className="text-muted-foreground">
+                  <tr key={u.id} className="hover:bg-on-surface/5 transition-colors">
+                    <td className="px-3 py-3">
+                      <div className="font-bold text-on-surface">{u.email ?? "—"}</div>
+                      <div className="text-[10px] text-on-surface-variant/60 font-medium">
                         {[u.firstName, u.lastName].filter(Boolean).join(" ") || "—"}
                       </div>
                     </td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-1">
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-2">
                         <Badge
                           variant={u.plan === "pro" ? "default" : "secondary"}
-                          className="text-[10px] px-1.5 py-0"
+                          className={cn(
+                            "text-[9px] px-1.5 py-0 uppercase font-mono tracking-wider",
+                            u.plan === "pro" ? "bg-primary-accent text-surface" : "bg-surface-container-highest text-on-surface-variant"
+                          )}
                         >
                           {u.plan}
                         </Badge>
                         {u.isAdmin && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-violet-500 text-violet-600">
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-primary-accent text-primary-accent uppercase font-mono tracking-wider">
                             admin
                           </Badge>
                         )}
                       </div>
                     </td>
-                    <td className="px-3 py-2">{u.apiKeyCount}</td>
-                    <td className="px-3 py-2">{u.monthlyRequests.toLocaleString()}</td>
-                    <td className="px-3 py-2">${u.monthlyCostUsd.toFixed(4)}</td>
-                    <td className="px-3 py-2 text-muted-foreground">
+                    <td className="px-3 py-3 font-mono text-on-surface-variant">{u.apiKeyCount}</td>
+                    <td className="px-3 py-3 font-mono text-on-surface-variant">{u.monthlyRequests.toLocaleString()}</td>
+                    <td className="px-3 py-3 font-mono text-on-surface-variant">${u.monthlyCostUsd.toFixed(4)}</td>
+                    <td className="px-3 py-3 text-[10px] text-on-surface-variant/60 font-mono uppercase">
                       {u.lastActive
                         ? formatDistanceToNow(new Date(u.lastActive), { addSuffix: true })
                         : "—"}
@@ -280,26 +278,26 @@ function GenerationsTab() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
+        <span className="text-[10px] font-mono text-on-surface-variant uppercase tracking-widest">
           {data ? `${data.total.toLocaleString()} total generations` : "Loading…"}
         </span>
-        <div className="flex items-center gap-2 text-xs">
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
-            className="h-6 px-2 text-xs"
+            className="h-6 px-2 text-[10px] font-mono uppercase tracking-widest border-outline-variant text-on-surface-variant hover:text-on-surface"
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
           >
             Prev
           </Button>
-          <span className="text-muted-foreground">
+          <span className="text-[10px] font-mono text-on-surface-variant/60">
             {page} / {totalPages}
           </span>
           <Button
             variant="outline"
             size="sm"
-            className="h-6 px-2 text-xs"
+            className="h-6 px-2 text-[10px] font-mono uppercase tracking-widest border-outline-variant text-on-surface-variant hover:text-on-surface"
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
@@ -309,57 +307,57 @@ function GenerationsTab() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 text-destructive text-sm">
+        <div className="flex items-center gap-2 text-error text-sm font-mono uppercase">
           <AlertTriangle className="w-4 h-4" />
           Failed to load generations
         </div>
       )}
 
-      <div className="border rounded-md overflow-x-auto">
+      <div className="ds-panel border border-outline-variant rounded-xl overflow-x-auto">
         <table className="w-full text-xs">
-          <thead className="bg-muted/50 border-b">
+          <thead className="bg-surface-container-high border-b border-outline-variant">
             <tr>
               {["Prompt", "Model", "Tokens", "Cost", "Cache", "Time"].map((h) => (
-                <th key={h} className="text-left px-3 py-2 font-medium text-muted-foreground">
+                <th key={h} className="text-left px-3 py-2 font-mono font-bold text-on-surface-variant/40 uppercase tracking-widest">
                   {h}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-outline-variant">
             {isLoading
               ? Array.from({ length: 8 }).map((_, i) => <RowSkeleton key={i} cols={6} />)
               : data?.generations.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-3 py-6 text-center text-on-surface-variant/40 font-mono uppercase">
                     No generations yet
                   </td>
                 </tr>
               ) : (
                 data?.generations.map((g) => (
-                  <tr key={g.id} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="px-3 py-2 max-w-[280px]">
-                      <span className="line-clamp-2 text-muted-foreground">{g.promptTruncated}</span>
+                  <tr key={g.id} className="hover:bg-on-surface/5 transition-colors">
+                    <td className="px-3 py-3 max-w-[280px]">
+                      <span className="line-clamp-2 text-on-surface-variant font-medium leading-relaxed">{g.promptTruncated}</span>
                     </td>
-                    <td className="px-3 py-2 font-mono text-[10px]">{g.modelUsed ?? "—"}</td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-3 font-mono text-[10px] text-on-surface-variant/80">{g.modelUsed ?? "—"}</td>
+                    <td className="px-3 py-3 font-mono text-on-surface-variant">
                       {g.tokenCountPrompt != null && g.tokenCountCompletion != null
                         ? `${(g.tokenCountPrompt + g.tokenCountCompletion).toLocaleString()}`
                         : "—"}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-3 font-mono text-on-surface-variant">
                       {g.costUsd != null ? `$${g.costUsd.toFixed(4)}` : "—"}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-3">
                       {g.cacheHit ? (
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 text-green-700 bg-green-100">
+                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-green/10 text-green font-mono uppercase tracking-widest border border-green/20">
                           HIT
                         </Badge>
                       ) : (
-                        <span className="text-muted-foreground">miss</span>
+                        <span className="text-[9px] text-on-surface-variant/40 font-mono uppercase tracking-widest">miss</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
+                    <td className="px-3 py-3 text-[10px] text-on-surface-variant/60 font-mono uppercase whitespace-nowrap">
                       {formatDistanceToNow(new Date(g.createdAt), { addSuffix: true })}
                     </td>
                   </tr>
@@ -389,7 +387,7 @@ function CacheTab() {
   return (
     <div className="space-y-4">
       {error && (
-        <div className="flex items-center gap-2 text-destructive text-sm">
+        <div className="flex items-center gap-2 text-error text-sm font-mono uppercase">
           <AlertTriangle className="w-4 h-4" />
           Failed to load cache stats
         </div>
@@ -398,14 +396,10 @@ function CacheTab() {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {isLoading ? (
           Array.from({ length: 3 }).map((_, i) => (
-            <Card key={i}>
-              <CardHeader className="pb-1 pt-4 px-4">
-                <Skeleton className="h-3 w-20" />
-              </CardHeader>
-              <CardContent className="px-4 pb-4">
-                <Skeleton className="h-7 w-14 mt-1" />
-              </CardContent>
-            </Card>
+            <div key={i} className="ds-panel p-4 rounded-xl">
+              <Skeleton className="h-3 w-20 bg-surface-container-highest" />
+              <Skeleton className="h-7 w-14 mt-2 bg-surface-container-highest" />
+            </div>
           ))
         ) : (
           <>
@@ -421,35 +415,35 @@ function CacheTab() {
       </div>
 
       <div>
-        <h3 className="text-xs font-semibold mb-2 text-muted-foreground uppercase tracking-wide">
+        <h3 className="text-[10px] font-mono font-bold mb-3 text-on-surface-variant/40 uppercase tracking-[0.2em]">
           Largest Cached Prompts
         </h3>
         {isLoading ? (
           <div className="space-y-2">
             {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-12 w-full" />
+              <Skeleton key={i} className="h-12 w-full bg-surface-container-highest" />
             ))}
           </div>
         ) : data?.largestPrompts.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No cached entries yet</p>
+          <p className="text-xs text-on-surface-variant/40 font-mono uppercase">No cached entries yet</p>
         ) : (
-          <div className="border rounded-md overflow-hidden">
+          <div className="ds-panel border border-outline-variant rounded-xl overflow-hidden">
             <table className="w-full text-xs">
-              <thead className="bg-muted/50 border-b">
+              <thead className="bg-surface-container-high border-b border-outline-variant">
                 <tr>
                   {["Prompt", "Hits", "Tokens"].map((h) => (
-                    <th key={h} className="text-left px-3 py-2 font-medium text-muted-foreground">
+                    <th key={h} className="text-left px-3 py-2 font-mono font-bold text-on-surface-variant/40 uppercase tracking-widest">
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-outline-variant">
                 {data?.largestPrompts.map((p, i) => (
-                  <tr key={i} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="px-3 py-2 max-w-[400px] text-muted-foreground">{p.prompt}</td>
-                    <td className="px-3 py-2">{p.hitCount}</td>
-                    <td className="px-3 py-2">{p.similarityTokens}</td>
+                  <tr key={i} className="hover:bg-on-surface/5 transition-colors">
+                    <td className="px-3 py-3 max-w-[400px] text-on-surface-variant font-medium leading-relaxed">{p.prompt}</td>
+                    <td className="px-3 py-3 font-mono text-on-surface-variant">{p.hitCount}</td>
+                    <td className="px-3 py-3 font-mono text-on-surface-variant">{p.similarityTokens}</td>
                   </tr>
                 ))}
               </tbody>
@@ -483,32 +477,32 @@ function ApiKeysTab() {
   return (
     <div className="space-y-3">
       {error && (
-        <div className="flex items-center gap-2 text-destructive text-sm">
+        <div className="flex items-center gap-2 text-error text-sm font-mono uppercase">
           <AlertTriangle className="w-4 h-4" />
           Failed to load API keys
         </div>
       )}
-      <p className="text-xs text-muted-foreground">
+      <p className="text-[10px] font-mono text-on-surface-variant/60 uppercase tracking-widest">
         {isLoading ? "Loading…" : `${data?.keys.length ?? 0} active keys`}
       </p>
 
-      <div className="border rounded-md overflow-x-auto">
+      <div className="ds-panel border border-outline-variant rounded-xl overflow-x-auto">
         <table className="w-full text-xs">
-          <thead className="bg-muted/50 border-b">
+          <thead className="bg-surface-container-high border-b border-outline-variant">
             <tr>
               {["Owner", "Key", "Name", "Usage (mo)", "Limit", "Last Used"].map((h) => (
-                <th key={h} className="text-left px-3 py-2 font-medium text-muted-foreground">
+                <th key={h} className="text-left px-3 py-2 font-mono font-bold text-on-surface-variant/40 uppercase tracking-widest">
                   {h}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-outline-variant">
             {isLoading
               ? Array.from({ length: 8 }).map((_, i) => <RowSkeleton key={i} cols={6} />)
               : data?.keys.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-3 py-6 text-center text-on-surface-variant/40 font-mono uppercase">
                     No active API keys
                   </td>
                 </tr>
@@ -519,30 +513,30 @@ function ApiKeysTab() {
                       ? Math.min(100, Math.round((k.thisMonth.requests / k.monthlyLimit) * 100))
                       : 0;
                   return (
-                    <tr key={k.id} className="border-b last:border-0 hover:bg-muted/30">
-                      <td className="px-3 py-2">
-                        <div>{k.owner.email ?? "—"}</div>
-                        <div className="text-muted-foreground">
+                    <tr key={k.id} className="hover:bg-on-surface/5 transition-colors">
+                      <td className="px-3 py-3">
+                        <div className="font-bold text-on-surface">{k.owner.email ?? "—"}</div>
+                        <div className="text-[10px] text-on-surface-variant/60 font-medium font-mono uppercase">
                           {[k.owner.firstName, k.owner.lastName].filter(Boolean).join(" ") || "—"}
                         </div>
                       </td>
-                      <td className="px-3 py-2 font-mono text-[10px]">{k.keyPrefix}…</td>
-                      <td className="px-3 py-2">{k.name}</td>
-                      <td className="px-3 py-2">
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <td className="px-3 py-3 font-mono text-[10px] text-on-surface-variant/80">{k.keyPrefix}…</td>
+                      <td className="px-3 py-3 font-medium text-on-surface">{k.name}</td>
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-1 bg-surface-container-highest rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-violet-500 rounded-full"
+                              className="h-full bg-primary-accent"
                               style={{ width: `${usagePct}%` }}
                             />
                           </div>
-                          <span>
+                          <span className="font-mono text-on-surface-variant">
                             {k.thisMonth.requests.toLocaleString()}
                           </span>
                         </div>
                       </td>
-                      <td className="px-3 py-2">{k.monthlyLimit.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-muted-foreground">
+                      <td className="px-3 py-3 font-mono text-on-surface-variant">{k.monthlyLimit.toLocaleString()}</td>
+                      <td className="px-3 py-3 text-[10px] text-on-surface-variant/60 font-mono uppercase">
                         {k.lastUsedAt
                           ? formatDistanceToNow(new Date(k.lastUsedAt), { addSuffix: true })
                           : "Never"}
@@ -569,74 +563,83 @@ export default function AdminPage() {
 
   if (isLoading || !isAuthenticated) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <Skeleton className="h-10 w-40" />
+      <div className="flex-1 flex items-center justify-center bg-surface">
+        <Skeleton className="h-10 w-40 bg-surface-container-highest" />
       </div>
     );
   }
 
   if (!user?.isAdmin) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-3">
-        <Shield className="w-10 h-10 text-muted-foreground" />
-        <p className="text-base font-semibold">Not authorised</p>
-        <p className="text-sm text-muted-foreground">
-          You don&apos;t have admin access to this page.
+      <div className="flex-1 flex flex-col items-center justify-center gap-6 bg-surface text-center">
+        <div className="w-20 h-20 rounded-2xl bg-red/10 flex items-center justify-center text-red border border-red/20">
+          <Shield className="w-10 h-10" />
+        </div>
+        <div>
+          <h1 className="text-3xl font-display font-bold text-on-surface tracking-widest uppercase">Access Denied</h1>
+          <p className="text-sm font-mono font-bold text-on-surface-variant uppercase tracking-widest mt-2">Not Authorized</p>
+        </div>
+        <p className="text-sm font-medium text-on-surface-variant/60 max-w-md leading-relaxed">
+          The requested administrative protocol is restricted to authenticated governance agents.
         </p>
+        <a href="/" className="btn-primary mt-4">Return to Studio</a>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-4">
+    <div className="flex-1 overflow-y-auto p-6 bg-surface">
       <div className="max-w-5xl mx-auto">
-        <div className="flex items-center gap-2 mb-4">
-          <Shield className="w-4 h-4 text-violet-500" />
-          <h1 className="text-base font-semibold">Admin Dashboard</h1>
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-violet-500 text-violet-600">
-            admin
+        <div className="flex items-center gap-3 mb-8">
+          <div className="w-10 h-10 rounded-xl bg-primary-accent/10 flex items-center justify-center text-primary-accent border border-primary-accent/20">
+            <Shield className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-display font-bold tracking-widest uppercase text-on-surface">Admin Dashboard</h1>
+            <p className="text-[10px] font-mono font-bold text-on-surface-variant/40 uppercase tracking-[0.2em]">Governance Control Panel</p>
+          </div>
+          <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0 border-primary-accent text-primary-accent uppercase font-mono tracking-wider">
+            root
           </Badge>
         </div>
 
-        <Tabs defaultValue="overview">
-          <TabsList className="h-8 mb-4">
-            <TabsTrigger value="overview" className="text-xs h-7 gap-1.5">
-              <Zap className="w-3 h-3" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="users" className="text-xs h-7 gap-1.5">
-              <Users className="w-3 h-3" />
-              Users
-            </TabsTrigger>
-            <TabsTrigger value="generations" className="text-xs h-7 gap-1.5">
-              <Zap className="w-3 h-3" />
-              Generations
-            </TabsTrigger>
-            <TabsTrigger value="cache" className="text-xs h-7 gap-1.5">
-              <Database className="w-3 h-3" />
-              Cache
-            </TabsTrigger>
-            <TabsTrigger value="keys" className="text-xs h-7 gap-1.5">
-              <Key className="w-3 h-3" />
-              API Keys
-            </TabsTrigger>
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="h-10 mb-6 bg-surface-container-high border border-outline-variant p-1 gap-1">
+            {[
+              { val: "overview", icon: RefreshCw, label: "Overview" },
+              { val: "users", icon: Users, label: "Users" },
+              { val: "generations", icon: Zap, label: "Generations" },
+              { val: "cache", icon: Database, label: "Cache" },
+              { val: "keys", icon: Key, label: "API Keys" },
+            ].map((t) => (
+              <TabsTrigger 
+                key={t.val}
+                value={t.val} 
+                className="text-[10px] h-full font-mono uppercase tracking-widest gap-2 data-[state=active]:bg-primary-accent data-[state=active]:text-surface"
+              >
+                <t.icon className="w-3.5 h-3.5" />
+                {t.label}
+              </TabsTrigger>
+            ))}
           </TabsList>
 
-          <TabsContent value="overview">
-            <OverviewTab />
-          </TabsContent>
-          <TabsContent value="users">
-            <UsersTab />
-          </TabsContent>
-          <TabsContent value="generations">
-            <GenerationsTab />
-          </TabsContent>
-          <TabsContent value="cache">
-            <CacheTab />
-          </TabsContent>
-          <TabsContent value="keys">
-            <ApiKeysTab />
-          </TabsContent>
+          <div className="mt-6">
+            <TabsContent value="overview">
+              <OverviewTab />
+            </TabsContent>
+            <TabsContent value="users">
+              <UsersTab />
+            </TabsContent>
+            <TabsContent value="generations">
+              <GenerationsTab />
+            </TabsContent>
+            <TabsContent value="cache">
+              <CacheTab />
+            </TabsContent>
+            <TabsContent value="keys">
+              <ApiKeysTab />
+            </TabsContent>
+          </div>
         </Tabs>
       </div>
     </div>

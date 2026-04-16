@@ -24,35 +24,35 @@ export function Header() {
     : "?";
 
   return (
-    <header className="h-12 border-b border-border/60 bg-background/80 backdrop-blur-sm flex items-center justify-between px-4 flex-shrink-0 z-50">
+    <header className="h-12 border-b border-outline-variant bg-surface-container-high/80 backdrop-blur-md flex items-center justify-between px-4 flex-shrink-0 z-50">
       <div className="flex items-center gap-2">
-        <Zap className="w-4 h-4 text-violet-500" />
-        <span className="text-sm font-semibold text-foreground">AI Studio</span>
+        <Zap className="w-4 h-4 text-primary-accent" />
+        <span className="text-sm font-display font-bold tracking-widest text-on-surface uppercase">AI Studio</span>
       </div>
 
       <nav className="flex items-center gap-1">
         <Link href="/">
-          <Button variant="ghost" size="sm" className="text-xs h-7">
+          <Button variant="ghost" size="sm" className="text-[10px] h-7 font-mono uppercase tracking-widest text-on-surface-variant hover:text-on-surface">
             Studio
           </Button>
         </Link>
         {isAuthenticated && (
           <>
             <Link href="/keys">
-              <Button variant="ghost" size="sm" className="text-xs h-7">
+              <Button variant="ghost" size="sm" className="text-[10px] h-7 font-mono uppercase tracking-widest text-on-surface-variant hover:text-on-surface">
                 <Key className="w-3 h-3 mr-1" />
                 API Keys
               </Button>
             </Link>
             <Link href="/billing">
-              <Button variant="ghost" size="sm" className="text-xs h-7">
+              <Button variant="ghost" size="sm" className="text-[10px] h-7 font-mono uppercase tracking-widest text-on-surface-variant hover:text-on-surface">
                 <CreditCard className="w-3 h-3 mr-1" />
                 Billing
               </Button>
             </Link>
             {user?.isAdmin && (
               <Link href="/admin">
-                <Button variant="ghost" size="sm" className="text-xs h-7 text-violet-600 hover:text-violet-700">
+                <Button variant="ghost" size="sm" className="text-[10px] h-7 font-mono uppercase tracking-widest text-primary-accent/80 hover:text-primary-accent">
                   <Shield className="w-3 h-3 mr-1" />
                   Admin
                 </Button>
@@ -64,46 +64,46 @@ export function Header() {
 
       <div className="flex items-center gap-2">
         {isLoading ? (
-          <div className="w-7 h-7 rounded-full bg-muted animate-pulse" />
+          <div className="w-7 h-7 rounded-full bg-surface-container-highest animate-pulse" />
         ) : isAuthenticated ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="p-0 h-7 w-7 rounded-full">
-                <Avatar className="h-7 w-7">
+                <Avatar className="h-7 w-7 border border-outline-variant">
                   <AvatarImage src={user?.profileImageUrl ?? undefined} />
-                  <AvatarFallback className="text-xs bg-violet-600 text-white">
+                  <AvatarFallback className="text-[10px] font-bold bg-primary-accent text-surface">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+            <DropdownMenuContent align="end" className="w-48 bg-surface-container-highest border-outline-variant">
+              <DropdownMenuLabel className="text-[10px] font-mono font-normal text-on-surface-variant uppercase tracking-widest">
                 {user?.email ?? `${user?.firstName} ${user?.lastName}`.trim()}
               </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
+              <DropdownMenuSeparator className="bg-outline-variant" />
+              <DropdownMenuItem asChild className="text-[11px] font-mono uppercase tracking-wider focus:bg-primary-accent/10 focus:text-primary-accent cursor-pointer">
                 <Link href="/keys">
                   <Key className="w-3.5 h-3.5 mr-2" />
                   API Keys
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
+              <DropdownMenuItem asChild className="text-[11px] font-mono uppercase tracking-wider focus:bg-primary-accent/10 focus:text-primary-accent cursor-pointer">
                 <Link href="/billing">
                   <CreditCard className="w-3.5 h-3.5 mr-2" />
                   Billing
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
+              <DropdownMenuSeparator className="bg-outline-variant" />
+              <DropdownMenuItem onClick={logout} className="text-[11px] font-mono uppercase tracking-wider text-error focus:text-error focus:bg-error/10 cursor-pointer">
                 <LogOut className="w-3.5 h-3.5 mr-2" />
                 Log out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
-          <Button size="sm" className="h-7 text-xs gap-1.5" onClick={login}>
-            <LogIn className="w-3 h-3" />
+          <Button size="sm" className="h-7 text-[10px] font-mono uppercase tracking-widest bg-primary-accent text-surface hover:bg-primary-accent/90" onClick={login}>
+            <LogIn className="w-3 h-3 mr-1.5" />
             Log in
           </Button>
         )}

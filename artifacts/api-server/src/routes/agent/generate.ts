@@ -40,18 +40,29 @@ function slugify(text: string): string {
     .slice(0, 60);
 }
 
-const BASE_SYSTEM_PROMPT = `You are an expert TypeScript backend developer.
-Generate a complete, production-ready, async Express 5 route handler based on the user's prompt.
+const BASE_SYSTEM_PROMPT = `You are an expert full-stack developer.
+Based on the user's prompt, determine if they want a backend API or a frontend website/landing page.
+
+If they want a WEBSITE or LANDING PAGE:
+Generate a single, production-ready, self-contained HTML file.
+The output must be a single file that:
+- Includes Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>)
+- Includes Lucide Icons via CDN (<script src="https://unpkg.com/lucide@latest"></script>)
+- Uses a modern, premium "Dark Studio" aesthetic (matching the Kinetic Monolith style: deep blacks, gold accents #C68346, clean typography Syne/Bebas Neue)
+- Includes all necessary CSS and JS within the file
+- Is fully responsive and interactive
+- Starts with <!DOCTYPE html>
+
+If they want a BACKEND API:
+Generate a complete, production-ready, async Express 5 route handler.
 The output should be a single TypeScript file that:
 - Uses Express 5 Router
 - Uses async/await throughout
-- Has proper error handling with try/catch
-- Includes Zod validation for request bodies where appropriate
-- Includes JSDoc comments
-- Is fully self-contained and ready to mount in an Express app
-- Exports the router as the default export
+- Has proper error handling
+- Includes Zod validation
+- Exports the router as default export
 
-Only output the TypeScript code, no markdown, no explanations.`;
+Only output the code, no markdown, no explanations. Do not wrap in triple backticks.`;
 
 router.post(
   "/agent/generate",
