@@ -2,12 +2,28 @@ import express, { type Express } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
+import rateLimit from "express-rate-limit";
 import { authMiddleware } from "./middlewares/authMiddleware";
 import { WebhookHandlers } from "./lib/webhookHandlers";
+import { errorHandler } from "./middlewares/errorHandler";
 import router, { wellKnownRouter } from "./routes";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
+
+// Global rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // limit each IP to 1000 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: "Too many requests from this IP, please try again after 15 minutes",
+    code: "TOO_MANY_REQUESTS",
+  },
+});
+
+app.use(limiter);
 
 app.use(
   pinoHttp({
@@ -58,5 +74,8 @@ app.use(authMiddleware);
 
 app.use(wellKnownRouter);
 app.use("/api", router);
+
+// Error handler MUST be at the end
+app.use(errorHandler);
 
 export default app;

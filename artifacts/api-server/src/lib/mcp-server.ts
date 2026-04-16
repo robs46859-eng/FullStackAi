@@ -8,6 +8,14 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { randomUUID } from "crypto";
 import { logger } from "./logger";
 import { getProviderStats, getRoutingStrategy, getCanaryStats } from "./providers/registry";
+import {
+	createAgentTask,
+	createLeadBundle,
+	createMessageDraft,
+	getWorkspaceContext,
+	saveMemory,
+	surrealConfigured,
+} from "./fullstack/surreal";
 
 function buildMcpServer(): Server {
   const server = new Server(
@@ -47,6 +55,121 @@ function buildMcpServer(): Server {
         inputSchema: {
           type: "object" as const,
           properties: {},
+        },
+      },
+      {
+        name: "fullstack-create-lead",
+        description: "Create a FULL STACK lead bundle in SurrealDB, optionally including company and contact records",
+        inputSchema: {
+          type: "object" as const,
+          properties: {
+            workspace: {
+              type: "object" as const,
+              properties: {
+                slug: { type: "string" },
+                name: { type: "string" },
+              },
+              required: ["slug"],
+            },
+            company: { type: "object" as const },
+            contact: { type: "object" as const },
+            lead: { type: "object" as const },
+          },
+          required: ["workspace"],
+        },
+      },
+      {
+        name: "fullstack-create-task",
+        description: "Create a FULL STACK agent task in SurrealDB for cross-model workflow coordination",
+        inputSchema: {
+          type: "object" as const,
+          properties: {
+            workspace: {
+              type: "object" as const,
+              properties: {
+                slug: { type: "string" },
+                name: { type: "string" },
+              },
+              required: ["slug"],
+            },
+            type: { type: "string" },
+            subject: { type: "string" },
+            leadId: { type: "string" },
+            campaignId: { type: "string" },
+            assignedTo: { type: "string" },
+            input: { type: "object" as const },
+            priority: { type: "number" },
+          },
+          required: ["workspace", "type"],
+        },
+      },
+      {
+        name: "fullstack-save-memory",
+        description: "Save reusable CRM or outreach memory for FULL STACK in SurrealDB",
+        inputSchema: {
+          type: "object" as const,
+          properties: {
+            workspace: {
+              type: "object" as const,
+              properties: {
+                slug: { type: "string" },
+                name: { type: "string" },
+              },
+              required: ["slug"],
+            },
+            category: { type: "string" },
+            content: { type: "string" },
+            leadId: { type: "string" },
+            contactId: { type: "string" },
+            companyId: { type: "string" },
+            sourceTaskId: { type: "string" },
+            confidence: { type: "number" },
+          },
+          required: ["workspace", "category", "content"],
+        },
+      },
+      {
+        name: "fullstack-create-draft",
+        description: "Create an outreach draft for FULL STACK in SurrealDB",
+        inputSchema: {
+          type: "object" as const,
+          properties: {
+            workspace: {
+              type: "object" as const,
+              properties: {
+                slug: { type: "string" },
+                name: { type: "string" },
+              },
+              required: ["slug"],
+            },
+            channel: { type: "string" },
+            subject: { type: "string" },
+            body: { type: "string" },
+            leadId: { type: "string" },
+            contactId: { type: "string" },
+            campaignId: { type: "string" },
+            generatedByAgentId: { type: "string" },
+          },
+          required: ["workspace", "channel", "body"],
+        },
+      },
+      {
+        name: "fullstack-workspace-context",
+        description: "Fetch recent FULL STACK workspace context including leads, tasks, drafts, and memories",
+        inputSchema: {
+          type: "object" as const,
+          properties: {
+            workspace: {
+              type: "object" as const,
+              properties: {
+                slug: { type: "string" },
+                name: { type: "string" },
+              },
+              required: ["slug"],
+            },
+            limit: { type: "number" },
+          },
+          required: ["workspace"],
         },
       },
     ],
@@ -89,6 +212,54 @@ function buildMcpServer(): Server {
       return {
         content: [{ type: "text" as const, text: JSON.stringify(providers, null, 2) }],
       };
+    }
+
+    if (name.startsWith("fullstack-")) {
+      if (!surrealConfigured()) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: "SurrealDB is not configured. Set SURREAL_URL, SURREAL_NS, SURREAL_DB, SURREAL_USER, and SURREAL_PASS.",
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      try {
+        if (name === "fullstack-create-lead") {
+          const result = await createLeadBundle((args ?? {}) as Parameters<typeof createLeadBundle>[0]);
+          return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+        }
+
+        if (name === "fullstack-create-task") {
+          const result = await createAgentTask((args ?? {}) as Parameters<typeof createAgentTask>[0]);
+          return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+        }
+
+        if (name === "fullstack-save-memory") {
+          const result = await saveMemory((args ?? {}) as Parameters<typeof saveMemory>[0]);
+          return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+        }
+
+        if (name === "fullstack-create-draft") {
+          const result = await createMessageDraft((args ?? {}) as Parameters<typeof createMessageDraft>[0]);
+          return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+        }
+
+        if (name === "fullstack-workspace-context") {
+          const payload = (args ?? {}) as { workspace: Parameters<typeof getWorkspaceContext>[0]; limit?: number };
+          const result = await getWorkspaceContext(payload.workspace, payload.limit);
+          return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown FULL STACK tool error";
+        return {
+          content: [{ type: "text" as const, text: message }],
+          isError: true,
+        };
+      }
     }
 
     return {

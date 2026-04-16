@@ -10,6 +10,10 @@ import { isRedisAvailable } from "../../lib/redis";
 const router: IRouter = Router();
 
 router.get("/gateway/stats", async (req, res) => {
+  if (!req.user?.isAdmin) {
+    res.status(403).json({ error: "Only admins can access gateway stats", code: "FORBIDDEN" });
+    return;
+  }
   try {
     const [row] = await db
       .select({

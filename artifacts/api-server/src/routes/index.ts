@@ -9,6 +9,7 @@ import publicApiRouter from "./public-api";
 import wellKnownRouter from "./well-known";
 import adminRouter from "./admin";
 import { createMcpRouter } from "../lib/mcp-server";
+import fullstackRouter from "./fullstack";
 
 const router: IRouter = Router();
 
@@ -20,6 +21,7 @@ router.use(keysRouter);
 router.use(billingRouter);
 router.use(publicApiRouter);
 router.use(adminRouter);
+router.use(fullstackRouter);
 router.use(createMcpRouter());
 
 export { wellKnownRouter };
